@@ -172,51 +172,51 @@ class Ui():
         target.draw(self.screen)
 
     
+if __name__ == "__main__":
 
-env = Env()
+    env = Env()
 
-env.ui.init_render()
-env.render()
-# pause = input("pause")
-clock = pg.time.Clock()
-
-while True:
-    clock.tick(500)
-    action = 0
-    for event in pg.event.get():
-        if event.type == pg.QUIT:
-            pg.quit()
-        if event.type == pg.KEYDOWN:
-            if event.key == pg.K_a:
-                action = 1
-            elif event.key == pg.K_d:
-                action = -1
-            elif event.key == pg.K_p:
-                unpause = False
-                while True:
-                    if unpause:
-                        break
-                    for event in pg.event.get():
-                        if event.type == pg.QUIT:
-                            pg.quit()
-                        if event.type == pg.KEYDOWN:
-                            print("keydown")
-                            if event.key == pg.K_p:
-                                unpause = True
-                                break
-            
-    # if pg.key.get_pressed()[pg.K_a]:
-    #     env.step(-1)
-    # elif pg.key.get_pressed()[pg.K_d]:
-    #     env.step(1)
-    # else:
-    #     env.step(0)
-    state, reward, done, _, _ = env.step(action)
-    print(env.spaceship.rotation)
-    if done:
-        env.reset()
-        done = False
+    env.ui.init_render()
     env.render()
+    # pause = input("pause")
+    clock = pg.time.Clock()
+
+    while True:
+        clock.tick(100)
+        action = 0
+        for event in pg.event.get():
+            if event.type == pg.QUIT:
+                pg.quit()
+            if event.type == pg.KEYDOWN:
+                if event.key == pg.K_a:
+                    action = 1
+                elif event.key == pg.K_d:
+                    action = -1
+                elif event.key == pg.K_p:
+                    unpause = False
+                    while True:
+                        if unpause:
+                            break
+                        for event in pg.event.get():
+                            if event.type == pg.QUIT:
+                                pg.quit()
+                            if event.type == pg.KEYDOWN:
+                                print("keydown")
+                                if event.key == pg.K_p:
+                                    unpause = True
+                                    break
+                
+        # if pg.key.get_pressed()[pg.K_a]:
+        #     env.step(-1)
+        # elif pg.key.get_pressed()[pg.K_d]:
+        #     env.step(1)
+        # else:
+        #     env.step(0)
+        state, reward, done, _, _ = env.step(action)
+        if done:
+            env.reset()
+            done = False
+        env.render()
             
 
 
