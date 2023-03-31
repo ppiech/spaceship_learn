@@ -1,3 +1,5 @@
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' 
 import tensorflow as tf
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,8 +9,6 @@ import pygame as pg
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
-
-from replay_buffer import ReplayBuffer
 
 
 def DeepQNetwork(lr, num_actions, input_dims, fc1, fc2):
@@ -23,7 +23,7 @@ def DeepQNetwork(lr, num_actions, input_dims, fc1, fc2):
 
 
 class Agent:
-    def __init__(self, lr, discount_factor, num_actions, epsilon, batch_size, input_dims):
+    def __init__(self, lr, discount_factor, num_actions, epsilon, replay_buffer, batch_size, input_dims):
         self.action_space = [i for i in range(num_actions)]
         self.discount_factor = discount_factor
         self.epsilon = epsilon
@@ -33,7 +33,7 @@ class Agent:
         self.update_rate = 120
         self.step_counter = 0
         self.tau = 0.001
-        self.buffer = ReplayBuffer(batch_size * 10, input_dims)
+        self.buffer = replay_buffer
         self.q_net = DeepQNetwork(lr, num_actions, input_dims, 256, 256)
         self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, 256, 256)
 
@@ -78,9 +78,9 @@ class Agent:
         self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
         self.step_counter += 1
 
-    def train_model(self, env, num_episodes, graph, file=None, file_type=None):
+    def train_model(self, env, num_episodes, graph, file=None):
         if file:
-            self.load(file, file_type, env)
+            self.load(file, env)
         render = True
 
         if render:
@@ -149,26 +149,20 @@ class Agent:
 
     def save(self, f):
         print("f:", f)
-        self.q_net.save(("saved_networks/space_model{0}".format(f)))
-        self.q_net.save_weights(("saved_networks/dqn_model{0}/net_weights{0}.h5".format(0)))
+        self.q_net.save(("saved_networks/dqn_model{0}".format(f)))
+        self.q_net.save_weights(("saved_networks/dqn_model{0}/net_weights{0}.h5".format(f)))
 
         print("Network saved")
 
-    def load(self, file, file_type, env):
-        if file_type == 'tf':
-            self.q_net = tf.keras.models.load_model(file)
-        elif file_type == 'h5':
-            self.train_model(env, 5, False)
-            self.q_net.load_weights(file)
+    def load(self, file, env):
+        self.train_model(env, 1, False)
+        self.q_net.load_weights(file)
 
-    def test(self, env, num_episodes, file_type, file, graph):
+    def test(self, env, num_episodes, file, graph):
         clock = pg.time.Clock()
         env.ui.init_render()
-        if file_type == 'tf':
-            self.q_net = tf.keras.models.load_model(file)
-        elif file_type == 'h5':
-            self.train_model(env, 5, False)
-            self.q_net.load_weights(file)
+        self.train_model(env, 5, False)
+        self.q_net.load_weights(file)
         self.epsilon = 0.0
         scores, episodes, avg_scores, obj = [], [], [], []
         goal = 200

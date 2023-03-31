@@ -1,0 +1,5 @@
+tensorflow
+matplotlib
+pygame
+pandas
+gym
