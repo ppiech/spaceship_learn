@@ -1,2 +1,4 @@
 absl-py
+gin-config
+tf-agents[reverb]
 tensorflow

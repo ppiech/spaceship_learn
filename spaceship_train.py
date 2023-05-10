@@ -3,6 +3,11 @@ import os
 import time
 
 from absl import app
+from absl import flags
+from absl import logging
+
+import gin
+import gin.tf
 import tensorflow as tf
 from tf_agents.agents.dqn import dqn_agent
 from tf_agents.drivers.dynamic_step_driver import DynamicStepDriver
@@ -17,38 +22,47 @@ from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.specs import tensor_spec
 from tf_agents.utils import common
 
-from google3.experimental.users.ppiech.spaceship_learn.spaceship_env import SpaceshipEnv
+from spaceship_env import SpaceshipEnv
 
 # from spaceship_env import SpaceshipEnv
 
-num_iterations = 40000  # @param {type:"integer"}
+ROOT_DIR = flags.DEFINE_string(
+    'root_dir', 'log', 'Root directory for writing log and checkpoints'
+)
 
-initial_collect_steps = 1000  # @param {type:"integer"}
-collect_steps_per_iteration = 10  # @param {type:"integer"}
-replay_buffer_max_length = 100000  # @param {type:"integer"}
+NUM_ITERATIONS = flags.DEFINE_integer(
+    'num_iterations', 40000, 'Training iterations to run'
+)
 
-batch_size = 64  # @param {type:"integer"}
-learning_rate = 1e-3  # @param {type:"number"}
+_GIN_FILE = flags.DEFINE_multi_string('gin_file', None,
+                                      'Paths to the study config files.')
 
-num_eval_episodes = 10  # @param {type:"integer"}
-eval_interval = 5000  # @param {type:"integer"}
+_GIN_BINDINGS = flags.DEFINE_multi_string('gin_bindings', None,
+                                          'Gin binding to pass through.')
+FLAGS = flags.FLAGS
 
-log_interval = 1000  # @param {type:"integer"}
-train_checkpoint_interval = 10000  # @param {type:"integer"}
-policy_checkpoint_interval = 5000  # @param {type:"integer"}
-rb_checkpoint_interval = 2000  # @param {type:"integer"}
-keep_rb_checkpoint = False  # @param {type:"boolean"}
-train_sequence_length = 1  # @param {type:"integer"}
-summary_interval = 1000  # @param {type:"integer"}
-summaries_flush_secs = 10  # @param {type:"integer"}
-root_dir = os.path.expanduser('/usr/local/google/home/ppiech/rl/log')
-train_dir = os.path.join(root_dir, 'train')
-eval_dir = os.path.join(root_dir, 'eval')
-saved_model_dir = os.path.join(root_dir, 'policy_saved_model')
-
-def main(argv: Sequence[str]) -> None:
-  if len(argv) > 1:
-    raise app.UsageError('Too many command-line arguments.')
+@gin.configurable
+def train(
+    root_dir='log',
+    num_iterations=40000,
+    initial_collect_steps=1000,
+    collect_steps_per_iteration=10,
+    replay_buffer_max_length=100000,
+    batch_size=64,
+    learning_rate=1e-3,
+    num_eval_episodes=10,
+    eval_interval=5000,
+    log_interval=1000,
+    train_checkpoint_interval=10000,
+    policy_checkpoint_interval=5000,
+    rb_checkpoint_interval=2000,
+    summary_interval=10,
+    summaries_flush_secs=10,
+):
+  root_dir = os.path.expanduser(root_dir)
+  train_dir = os.path.join(root_dir, 'train')
+  eval_dir = os.path.join(root_dir, 'eval')
+  saved_model_dir = os.path.join(root_dir, 'policy_saved_model')
 
   if not tf.io.gfile.exists(saved_model_dir):
     tf.io.gfile.makedirs(saved_model_dir)
@@ -131,7 +145,6 @@ def main(argv: Sequence[str]) -> None:
   # Replay buffer
   #
 
-  table_name = 'uniform_table'
   replay_buffer_signature = tensor_spec.from_spec(agent.collect_data_spec)
   replay_buffer_signature = tensor_spec.add_outer_dim(replay_buffer_signature)
 
@@ -218,7 +231,7 @@ def main(argv: Sequence[str]) -> None:
   # Train Loop
   #
 
-  # (Optional) Optimize by wrapping some of the code in a graph using TF 
+  # (Optional) Optimize by wrapping some of the code in a graph using TF
   # function.
   agent.train = common.function(agent.train)
 
@@ -240,6 +253,8 @@ def main(argv: Sequence[str]) -> None:
   time_acc = 0
 
   for _ in range(num_iterations):
+    logging.set_verbosity(logging.INFO)
+
     start_time = time.time()
 
     # Collect a few steps and save to the replay buffer.
@@ -254,10 +269,11 @@ def main(argv: Sequence[str]) -> None:
 
     time_acc += time.time() - start_time
 
-    for train_metric in train_metrics:
-      train_metric.tf_summaries(
-          train_step=agent.train_step_counter, step_metrics=train_metrics[:2]
-      )
+    if step % summary_interval == 0:
+      for train_metric in train_metrics:
+        train_metric.tf_summaries(
+            train_step=agent.train_step_counter, step_metrics=train_metrics[:2]
+        )
 
     if step % train_checkpoint_interval == 0:
       train_checkpointer.save(global_step=step)
@@ -290,6 +306,15 @@ def main(argv: Sequence[str]) -> None:
           train_step=step,
       )
       metric_utils.log_metrics(eval_metrics)
+
+
+def main(_) -> None:
+  logging.set_verbosity(logging.INFO)
+
+  gin.parse_config_files_and_bindings(
+      _GIN_FILE.value, _GIN_BINDINGS.value, skip_unknown=True)
+
+  train(FLAGS.root_dir, num_iterations=FLAGS.num_iterations)
 
 if __name__ == '__main__':
   # This isn't used when launching with XManager.
