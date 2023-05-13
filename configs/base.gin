@@ -1,25 +1,18 @@
-NUM_EVAL_EPISODES = 30
-NUM_EVAL_ENVIRONMENTS = 1
-NUM_TRAIN_ENVIRONMENTS = 1
-NUM_GLOBAL_STEPS = 1000000
 
-train.log_interval=10
+train.num_iterations=40000
+train.initial_collect_steps=1000
+train.collect_steps_per_iteration=10
+train.replay_buffer_max_length=100000
+train.batch_size=64
+train.learning_rate=1e-3
+train.num_eval_episodes=10
+train.eval_interval=5000
+train.log_interval=1000
+train.train_checkpoint_interval=10000
+train.policy_checkpoint_interval=5000
+train.rb_checkpoint_interval=2000
+train.summary_interval=10
+train.summaries_flush_secs=10
 
-# spaceship_train.train.num_parallel_environments = %NUM_TRAIN_ENVIRONMENTS
-# spaceship_train.train.env_load_fn = %ENV_LOAD_FN
-# spaceship_train.train.num_global_steps = %NUM_GLOBAL_STEPS
-
-# spaceship_train.train.num_iterations=40000
-#     initial_collect_steps=1000
-#     collect_steps_per_iteration=10
-#     replay_buffer_max_length=100000
-#     batch_size=64
-#     learning_rate=1e-3
-#     num_eval_episodes=10
-#     eval_interval=5000
-#     log_interval=1000
-#     train_checkpoint_interval=10000
-#     policy_checkpoint_interval=5000
-#     rb_checkpoint_interval=2000
-#     summary_interval=10
-#     summaries_flush_secs=10
+SpaceshipEnv.screen_dimension = (800, 500)
+SpaceshipEnv.shaped_rewards = False

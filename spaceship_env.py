@@ -5,6 +5,8 @@ import pygame.display
 import pygame.draw
 import pygame.surfarray
 
+import gin
+import gin.tf
 from tf_agents.environments import py_environment
 from tf_agents.environments import utils
 from tf_agents.specs import array_spec
@@ -21,10 +23,16 @@ DECELERATION = 0.03
 MAX_VELOCITY = 500
 MAX_STEPS = 2000
 
+@gin.configurable
 class SpaceshipEnv(py_environment.PyEnvironment):
     
-  def __init__(self):
-    self.screen_dimension = (1400, 1000)
+  def __init__(
+      self,
+      screen_dimension = (1400, 1000),
+      shaped_rewards = True
+  ):
+    self.screen_dimension = screen_dimension
+    self.shaped_rewards = shaped_rewards
 
     self.action_space = array_spec.BoundedArraySpec(
         shape=(), dtype=np.int32, minimum=0, maximum=2, name='action'
@@ -84,22 +92,23 @@ class SpaceshipEnv(py_environment.PyEnvironment):
     if action == 0:
       reward += 0.1
 
-    if (
-        abs(self.spaceship.velocity[0]) < 1
-        and abs(self.spaceship.velocity[1]) < 1
-    ):
-      reward -= 50
+    if self.shaped_rewards:
+      if (
+          abs(self.spaceship.velocity[0]) < 1
+          and abs(self.spaceship.velocity[1]) < 1
+      ):
+        reward -= 50
 
-    distance = abs(self.spaceship.pos[0] - self.target.pos[0]) + abs(
-        self.spaceship.pos[1] - self.target.pos[1]
-    )
+      distance = abs(self.spaceship.pos[0] - self.target.pos[0]) + abs(
+          self.spaceship.pos[1] - self.target.pos[1]
+      )
 
-    if distance < first_distance:
-      max_velocity = max(self.spaceship.velocity)
-      if max_velocity > 0.5:
-        reward += 15 * max(self.spaceship.velocity)
-    else:
-      reward -= 100
+      if distance < first_distance:
+        max_velocity = max(self.spaceship.velocity)
+        if max_velocity > 0.5:
+          reward += 15 * max(self.spaceship.velocity)
+        else:
+          reward -= 100
 
     if self.check_for_collision(self.spaceship, self.target):
       reward += 1000

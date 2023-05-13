@@ -37,7 +37,7 @@ NUM_ITERATIONS = flags.DEFINE_integer(
 _GIN_FILE = flags.DEFINE_multi_string('gin_file', None,
                                       'Paths to the study config files.')
 
-_GIN_BINDINGS = flags.DEFINE_multi_string('gin_bindings', None,
+_GIN_PARAM = flags.DEFINE_multi_string('gin_param', None,
                                           'Gin binding to pass through.')
 FLAGS = flags.FLAGS
 
@@ -311,8 +311,12 @@ def train(
 def main(_) -> None:
   logging.set_verbosity(logging.INFO)
 
-  gin.parse_config_files_and_bindings(
-      _GIN_FILE.value, _GIN_BINDINGS.value, skip_unknown=True)
+  gin.gin.parse_config_file(
+      _GIN_FILE.value[0])
+#  gin.parse_config_files_and_bindings(
+#      _GIN_FILE.value, _GIN_PARAM.value, skip_unknown=True)
+
+  print (gin.query_parameter('train.log_interval'))
 
   train(FLAGS.root_dir, num_iterations=FLAGS.num_iterations)
 
