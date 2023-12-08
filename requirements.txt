@@ -2,3 +2,5 @@ absl-py
 gin-config
 tf-agents[reverb]
 tensorflow
+imageio[ffmpeg]
+ffmpeg

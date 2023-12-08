@@ -28,8 +28,8 @@ class SpaceshipEnv(py_environment.PyEnvironment):
     
   def __init__(
       self,
-      screen_dimension = (1400, 1000),
-      shaped_rewards = True
+      screen_dimension=(1400, 1000),
+      shaped_rewards=True
   ):
     self.screen_dimension = screen_dimension
     self.shaped_rewards = shaped_rewards

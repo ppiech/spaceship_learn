@@ -1,20 +1,17 @@
-from collections.abc import Sequence
 import os
 import time
 
-from absl import app
-from absl import flags
 from absl import logging
-
 import gin
 import gin.tf
+from spaceship_util import get_dirs
+from spaceship_agent import train_agent
+from spaceship_env import SpaceshipEnv
 import tensorflow as tf
-from tf_agents.agents.dqn import dqn_agent
 from tf_agents.drivers.dynamic_step_driver import DynamicStepDriver
 from tf_agents.environments import tf_py_environment
 from tf_agents.eval import metric_utils
 from tf_agents.metrics import tf_metrics
-from tf_agents.networks import sequential
 from tf_agents.policies import greedy_policy
 from tf_agents.policies import policy_saver
 from tf_agents.policies import random_tf_policy
@@ -22,24 +19,6 @@ from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.specs import tensor_spec
 from tf_agents.utils import common
 
-from spaceship_env import SpaceshipEnv
-
-# from spaceship_env import SpaceshipEnv
-
-ROOT_DIR = flags.DEFINE_string(
-    'root_dir', 'log', 'Root directory for writing log and checkpoints'
-)
-
-NUM_ITERATIONS = flags.DEFINE_integer(
-    'num_iterations', 40000, 'Training iterations to run'
-)
-
-_GIN_FILE = flags.DEFINE_multi_string('gin_file', None,
-                                      'Paths to the study config files.')
-
-_GIN_PARAM = flags.DEFINE_multi_string('gin_param', None,
-                                          'Gin binding to pass through.')
-FLAGS = flags.FLAGS
 
 @gin.configurable
 def train(
@@ -49,7 +28,6 @@ def train(
     collect_steps_per_iteration=10,
     replay_buffer_max_length=100000,
     batch_size=64,
-    learning_rate=1e-3,
     num_eval_episodes=10,
     eval_interval=5000,
     log_interval=1000,
@@ -59,10 +37,7 @@ def train(
     summary_interval=10,
     summaries_flush_secs=10,
 ):
-  root_dir = os.path.expanduser(root_dir)
-  train_dir = os.path.join(root_dir, 'train')
-  eval_dir = os.path.join(root_dir, 'eval')
-  saved_model_dir = os.path.join(root_dir, 'policy_saved_model')
+  root_dir, train_dir, eval_dir, saved_model_dir = get_dirs(root_dir)
 
   if not tf.io.gfile.exists(saved_model_dir):
     tf.io.gfile.makedirs(saved_model_dir)
@@ -78,46 +53,11 @@ def train(
   eval_env = tf_py_environment.TFPyEnvironment(eval_py_env)
 
   #
-  # Policy
-  #
-  fc_layer_params = (256, 256)
-  action_tensor_spec = tensor_spec.from_spec(train_py_env.action_spec())
-  num_actions = action_tensor_spec.maximum - action_tensor_spec.minimum + 1
-
-  def dense_layer(num_units):
-    return tf.keras.layers.Dense(
-        num_units,
-        activation=tf.keras.activations.relu,
-        kernel_initializer=tf.keras.initializers.VarianceScaling(
-            scale=2.0, mode='fan_in', distribution='truncated_normal'
-        ),
-    )
-  dense_layers = [dense_layer(num_units) for num_units in fc_layer_params]
-  q_values_layer = tf.keras.layers.Dense(
-      num_actions,
-      activation=None,
-      kernel_initializer=tf.keras.initializers.RandomUniform(
-          minval=-0.03, maxval=0.03
-      ),
-      bias_initializer=tf.keras.initializers.Constant(-0.2),
-  )
-  q_net = sequential.Sequential(dense_layers + [q_values_layer])
-
-  optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate)
-
-  train_step_counter = tf.Variable(0, dtype=tf.int64)
-
-  #
   # Agent
   #
-  agent = dqn_agent.DqnAgent(
-      train_env.time_step_spec(),
-      train_env.action_spec(),
-      q_network=q_net,
-      optimizer=optimizer,
-      td_errors_loss_fn=common.element_wise_squared_loss,
-      train_step_counter=train_step_counter,
-  )
+  train_step_counter = tf.Variable(0, dtype=tf.int64)
+
+  agent = train_agent(train_env, train_py_env.action_spec(), train_step_counter)
   agent.initialize()
 
   policy_checkpointer = common.Checkpointer(
@@ -138,8 +78,6 @@ def train(
         saved_model_dir, 'policy_' + ('%d' % global_step_value).zfill(8)
     )
     saved_model.save(saved_model_path)
-
-  eval_policy = agent.policy
 
   #
   # Replay buffer
@@ -306,20 +244,4 @@ def train(
           train_step=step,
       )
       metric_utils.log_metrics(eval_metrics)
-
-
-def main(_) -> None:
-  logging.set_verbosity(logging.INFO)
-
-  gin.gin.parse_config_file(
-      _GIN_FILE.value[0])
-#  gin.parse_config_files_and_bindings(
-#      _GIN_FILE.value, _GIN_PARAM.value, skip_unknown=True)
-
-  print (gin.query_parameter('train.log_interval'))
-
-  train(FLAGS.root_dir, num_iterations=FLAGS.num_iterations)
-
-if __name__ == '__main__':
-  # This isn't used when launching with XManager.
-  app.run(main)
+      
