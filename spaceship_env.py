@@ -234,7 +234,7 @@ class Spaceship(Body):
   def draw(self, screen):
     if self.image == None:
       self.image = pg.image.load(
-          'experimental/users/ppiech/spaceship_learn/images/spaceship_image.bmp'
+          'images/spaceship_image.bmp'
       )
       self.image = pg.transform.scale(self.image, self.size)
       
