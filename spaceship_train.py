@@ -68,7 +68,7 @@ def train(
   )
 
   saved_model = policy_saver.PolicySaver(
-      greedy_policy.GreedyPolicy(agent.policy), train_step=train_step_counter
+      agent.policy, train_step=train_step_counter
   )
 
   def save_policy(global_step_value):

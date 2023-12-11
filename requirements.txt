@@ -1,6 +1,7 @@
 absl-py
 gin-config
-tf-agents[reverb]
-tensorflow
+tf-agents[reverb]==0.18.0
+tensorflow==2.13.0
+tensorflow-probability==0.21.0
 imageio[ffmpeg]
 ffmpeg
