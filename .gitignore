@@ -1,2 +1,4 @@
 saved_networks
+log
+.ipynb_checkpoints
 __pycache__

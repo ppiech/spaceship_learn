@@ -74,6 +74,7 @@ class Agent:
             if not done_batch[idx]:
                 target_q_val += self.discount_factor*q_max_next[idx]
             q_target[idx, action_batch[idx]] = target_q_val
+            
         self.q_net.train_on_batch(state_batch, q_target)
         self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
         self.step_counter += 1
@@ -83,8 +84,6 @@ class Agent:
             self.load(file, file_type, env)
         render = True
 
-        if render:
-            env.ui.init_render()
         scores, episodes, avg_scores, obj = [], [], [], []
         goal = 200
         f = 0
@@ -154,21 +153,12 @@ class Agent:
 
         print("Network saved")
 
-    def load(self, file, file_type, env):
-        if file_type == 'tf':
-            self.q_net = tf.keras.models.load_model(file)
-        elif file_type == 'h5':
-            self.train_model(env, 5, False)
-            self.q_net.load_weights(file)
+    def load(self, file, env):
+        self.q_net = tf.keras.models.load_model(file)
 
-    def test(self, env, num_episodes, file_type, file, graph):
+    def test(self, env, num_episodes, file, graph):
         clock = pg.time.Clock()
-        env.ui.init_render()
-        if file_type == 'tf':
-            self.q_net = tf.keras.models.load_model(file)
-        elif file_type == 'h5':
-            self.train_model(env, 5, False)
-            self.q_net.load_weights(file)
+        self.q_net = tf.keras.models.load_model(file)
         self.epsilon = 0.0
         scores, episodes, avg_scores, obj = [], [], [], []
         goal = 200

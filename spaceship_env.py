@@ -49,13 +49,6 @@ class SpaceshipEnv(gym.Env):
         dtype = 'uint8'
     )
     
-#     self.observation_space = array_spec.BoundedArraySpec(
-#         shape=(7,),
-#         dtype=np.float32,
-#         minimum=-100,
-#         name='observation',
-#     )
-
     self.spaceship = Spaceship(
         np.array([100, 100], dtype=np.int32),
         np.array([0, 0], dtype=np.int32),
@@ -78,7 +71,7 @@ class SpaceshipEnv(gym.Env):
         self.target.pos[1],
     ], dtype=np.float32)
 
-  def _step(self, action):
+  def step(self, action):
     first_distance = abs(self.spaceship.pos[0] - self.target.pos[0]) + abs(
         self.spaceship.pos[1] - self.target.pos[1]
     )
