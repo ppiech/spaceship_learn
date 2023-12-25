@@ -79,79 +79,8 @@ class Agent:
         self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
         self.step_counter += 1
 
-    def train_model(self, env, num_episodes, graph, file=None, file_type=None):
-        if file:
-            self.load(file, file_type, env)
-        render = True
-
-        scores, episodes, avg_scores, obj = [], [], [], []
-        goal = 200
-        f = 0
-        steps = 0
-        txt = open("saved_networks.txt", "w")
-        train = False
-
-        for i in range(num_episodes):
-            if i % 300 == 0 and i != 0:
-                self.save(f)
-                f += 1
-            done = False
-            score = 0.0
-            state, _ = env.reset()
-            while not done:
-                for event in pg.event.get():
-                        if event.type == pg.QUIT:
-                            pg.quit()
-                        if event.type == pg.KEYDOWN:
-                            if event.key == pg.K_s:
-                                render = not render
-                            if event.key == pg.K_0:
-                                self.save(f)
-                                f += 1
-                if render:
-                    env.render()
-                action = self.policy(state)
-                new_state, reward, terminated, truncated, _ = env.step(action)
-                done = terminated
-                score += reward
-                self.store_tuple(state, action, reward, new_state, done)
-                state = new_state
-                if steps % 10 and train == 0:
-                    self.train()
-                steps += 1
-            # if self.buffer.counter > self.buffer.size - 100:
-            #         train = True
-            scores.append(score)
-            obj.append(goal)
-            episodes.append(i)
-            avg_score = np.mean(scores[-100:])
-            avg_scores.append(avg_score)
-            print("Episode {0}/{1}, Score: {2} ({3}), AVG Score: {4}".format(i, num_episodes, score, self.epsilon,
-                                                                             avg_score))
-        # if avg_score >= 200.0 and score >= 250:
-        self.save(f)
-        f += 1
-        txt.write("Save {0} - Episode {1}/{2}, Score: {3} ({4}), AVG Score: {5}\n".format(f, i, num_episodes,
-                                                                                            score, self.epsilon,
-                                                                                            avg_score))
-        txt.close()
-        if graph:
-            df = pd.DataFrame({'x': episodes, 'Score': scores, 'Average Score': avg_scores, 'Solved Requirement': obj})
-
-            plt.plot('x', 'Score', data=df, marker='', color='blue', linewidth=2, label='Score')
-            plt.plot('x', 'Average Score', data=df, marker='', color='orange', linewidth=2, linestyle='dashed',
-                     label='AverageScore')
-            plt.plot('x', 'Solved Requirement', data=df, marker='', color='red', linewidth=2, linestyle='dashed',
-                     label='Solved Requirement')
-            plt.legend()
-            plt.savefig('LunarLander_Train.png')
-
-    def save(self, f):
-        print("f:", f)
-        self.q_net.save(("saved_networks/space_model{0}".format(f)))
-        self.q_net.save_weights(("saved_networks/dqn_model{0}/net_weights{0}.h5".format(0)))
-
-        print("Network saved")
+    def save(self, step):
+        self.q_net.save(("saved_networks/space_model{0}".format(step)))
 
     def load(self, file, env):
         self.q_net = tf.keras.models.load_model(file)
