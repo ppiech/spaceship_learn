@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import pygame as pg
+import os
 
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
@@ -79,11 +80,16 @@ class Agent:
         self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
         self.step_counter += 1
 
-    def save(self, step):
-        self.q_net.save(("saved_networks/space_model{0}".format(step)))
+    def save_file(self, saved_model_dir, step):
+        return os.path.join(saved_model_dir, "{0}.keras".format(step))
 
-    def load(self, file, env):
-        self.q_net = tf.keras.models.load_model(file)
+    def save(self, saved_model_dir, step):
+        self.q_net.save(
+            self.save_file(saved_model_dir, step))
+
+    def load(self, saved_model_dir, step):
+        self.q_net = tf.keras.models.load_model(
+            self.save_file(saved_model_dir, step))
 
     def test(self, env, num_episodes, file, graph):
         clock = pg.time.Clock()
