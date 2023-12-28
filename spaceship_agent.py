@@ -23,7 +23,7 @@ def DeepQNetwork(lr, num_actions, input_dims, fc1, fc2):
   return q_net
 
 class Agent:
-  def __init__(self, lr, discount_factor, num_actions, epsilon, batch_size, input_dims, step_var):
+  def __init__(self, lr, discount_factor, num_actions, epsilon, batch_size, input_dims, step_var, replay_buffer):
     self.lr = lr
     self.action_space = [i for i in range(num_actions)]
     self.discount_factor = discount_factor
@@ -34,7 +34,7 @@ class Agent:
     self.update_rate = 120
     self.step_var = step_var
     self.tau = 0.001
-    self.buffer = ReplayBuffer(batch_size * 10, input_dims)
+    self.buffer = replay_buffer
     self.q_net = DeepQNetwork(lr, num_actions, input_dims, 256, 256)
     self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, 256, 256)
     self.policy_checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)

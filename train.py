@@ -11,7 +11,8 @@ import tensorflow as tf
 
 from spaceship_env import SpaceshipEnv
 from spaceship_agent import Agent
-from tensorflow.keras.optimizers import Adam
+
+from replay_buffer import ReplayBuffer
 
 import spaceship_util
 
@@ -52,7 +53,17 @@ def train(
   step_var.assign(0)
   step = step_var.numpy()
 
-  agent = Agent(lr=0.00075, discount_factor=0.99, num_actions=3, epsilon=0.03, batch_size=500, input_dims=7, step_var=step_var)
+  input_dims = 7
+
+  agent = Agent(
+    lr=0.00075, 
+    discount_factor=0.99, 
+    num_actions=3, 
+    epsilon=0.03, 
+    batch_size=500, 
+    input_dims=7, 
+    step_var=step_var, 
+    replay_buffer=ReplayBuffer(batch_size * 10, input_dims))
 
   # if file:
   #   agent.load(file, env)
