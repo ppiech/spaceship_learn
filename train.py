@@ -11,6 +11,8 @@ import tensorflow as tf
 
 from spaceship_env import SpaceshipEnv
 from spaceship_agent import Agent
+from tensorflow.keras.optimizers import Adam
+
 import spaceship_util
 
 import video_util
@@ -22,15 +24,16 @@ train_sequence_length=1 # @param {type:"integer"}
 @gin.configurable
 def train(
     root_dir='log',
-    num_steps=80000,
-    initial_collect_steps=1000,
+    policy_file=None,
+    num_steps=1000000,
+    initial_collect_steps=10000,
     collect_steps_per_iteration=10,
     replay_buffer_max_length=100000,
     batch_size=64,
     num_eval_episodes=10,
     eval_interval=500,
     log_interval=100,
-    train_checkpoint_interval=1000,
+    policy_checkpoint_interval=1000,
     policy_save_interval=2000,
     rb_checkpoint_interval=200,
     summary_interval=10,
@@ -49,17 +52,27 @@ def train(
   step_var.assign(0)
   step = step_var.numpy()
 
-  agent = Agent(lr=0.00075, discount_factor=0.99, num_actions=3, epsilon=0.03, batch_size=5000, input_dims=7)
+  agent = Agent(lr=0.00075, discount_factor=0.99, num_actions=3, epsilon=0.03, batch_size=500, input_dims=7, step_var=step_var)
 
   # if file:
   #   agent.load(file, env)
-  train_checkpoint =  tf.train.Checkpoint(model=agent.q_net, global_step=step_var)
 
-  scores, obj = [], []
-  goal = 200
+  policy_checkpointer = tf.train.CheckpointManager(
+      checkpoint=agent.policy_checkpoint,
+      directory=os.path.join(train_dir),
+      max_to_keep=2)
+
+  if policy_file:
+    agent.load(policy_file)
+  elif policy_checkpointer.latest_checkpoint:
+    agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
+
+  step = step_var.numpy()
 
   # Summary data
+  start_step = step
   episode = 1
+  scores = []
   score = 0.0
   state, _ = train_env.reset()
   timed_at_step, time_acc = step, 0
@@ -75,7 +88,8 @@ def train(
     agent.store_tuple(state, action, reward, new_state, done)
     state = new_state
 
-    agent.train()
+    if step > (initial_collect_steps + start_step):
+      agent.train()
 
     time_acc += time.time() - start_time
     step_var.assign_add(1)
@@ -84,7 +98,6 @@ def train(
     if done:
       # Print summary
       scores.append(score)
-      obj.append(goal)
       avg_score = np.mean(scores[-100:])
       steps_per_sec = (step - timed_at_step) / time_acc
       print("Episode {0}, Step: {1}, Score: {2} ({3}), AVG Score: {4}, Steps/sec: {5}"
@@ -99,14 +112,12 @@ def train(
     if step % policy_save_interval == 0:
       agent.save(saved_model_dir, step)
 
-    if step % train_checkpoint_interval == 0:
-      train_checkpoint.save(os.path.join(train_dir, 'checkpoint'))
+    if step % policy_checkpoint_interval == 0:
+      policy_checkpointer.save()
 
   agent.save(saved_model_dir, step)
 
 
-
-# EPSILON LOWERED FOR NOW
-
+gin.parse_config_file('config/base.gin')
 
 train()
