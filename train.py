@@ -24,19 +24,16 @@ train_sequence_length=1 # @param {type:"integer"}
 
 @gin.configurable
 def train(
-    root_dir='log',
-    policy_file=None,
-    num_steps=1000000,
-    initial_collect_steps=10000,
-    collect_steps_per_iteration=10,
-    replay_buffer_max_length=100000,
-    batch_size=64,
-    num_eval_episodes=10,
-    eval_interval=500,
-    log_interval=100,
-    policy_checkpoint_interval=1000,
-    policy_save_interval=2000,
-    rb_checkpoint_interval=200,
+    root_dir,
+    policy_file,
+    num_steps,
+    initial_collect_steps,
+    replay_buffer_max_length,
+    num_eval_episodes,
+    eval_interval,
+    log_interval,
+    policy_checkpoint_interval,
+    policy_save_interval,
     summary_interval=10,
     summaries_flush_secs=10,
 ):
@@ -53,17 +50,13 @@ def train(
   step_var.assign(0)
   step = step_var.numpy()
 
-  input_dims = 7
+  input_dims = train_env.observation_space.shape[0]
 
   agent = Agent(
-    lr=0.00075, 
-    discount_factor=0.99, 
-    num_actions=3, 
-    epsilon=0.03, 
-    batch_size=500, 
-    input_dims=7, 
     step_var=step_var, 
-    replay_buffer=ReplayBuffer(batch_size * 10, input_dims))
+    replay_buffer=ReplayBuffer(replay_buffer_max_length, input_dims),
+    num_actions=train_env.action_space.n, 
+    input_dims=input_dims)
 
   # if file:
   #   agent.load(file, env)

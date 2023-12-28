@@ -5,25 +5,37 @@ import pandas as pd
 import pygame as pg
 import os
 
+import gin
+import gin.tf
+
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
 
 from replay_buffer import ReplayBuffer
 
-
-def DeepQNetwork(lr, num_actions, input_dims, fc1, fc2):
+def DeepQNetwork(lr, num_actions, input_dims, fc_layer_params):
   q_net = Sequential()
-  q_net.add(Dense(fc1, input_dim=input_dims, activation='relu'))
-  q_net.add(Dense(fc2, activation='relu'))
-  q_net.add(Dense(fc2, activation='relu'))
+  q_net.add(Dense(fc_layer_params[0], input_dim=input_dims, activation='relu'))
+  for i in range(1, len(fc_layer_params)):
+    q_net.add(Dense(fc_layer_params[i], activation='relu'))
   q_net.add(Dense(num_actions, activation=None))
   q_net.compile(optimizer=Adam(learning_rate=lr), loss='mse')
 
   return q_net
 
+@gin.configurable
 class Agent:
-  def __init__(self, lr, discount_factor, num_actions, epsilon, batch_size, input_dims, step_var, replay_buffer):
+  def __init__(self, 
+               step_var, 
+               replay_buffer,
+               lr, 
+               discount_factor, 
+               num_actions, 
+               epsilon, 
+               batch_size, 
+               input_dims, 
+               fc_layer_params):
     self.lr = lr
     self.action_space = [i for i in range(num_actions)]
     self.discount_factor = discount_factor
@@ -35,8 +47,8 @@ class Agent:
     self.step_var = step_var
     self.tau = 0.001
     self.buffer = replay_buffer
-    self.q_net = DeepQNetwork(lr, num_actions, input_dims, 256, 256)
-    self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, 256, 256)
+    self.q_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
+    self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
     self.policy_checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)
 
   def store_tuple(self, state, action, reward, new_state, done):

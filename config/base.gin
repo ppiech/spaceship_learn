@@ -1,17 +1,23 @@
 # train.policy_file='log/policy_saved_model/6000.keras'
 
-train.num_steps=40000
+train.root_dir='log'
+train.policy_file=None
+train.num_steps=50000
 train.initial_collect_steps=1000
-train.collect_steps_per_iteration=10
 train.replay_buffer_max_length=100000
-train.batch_size=64
 train.num_eval_episodes=10
 train.eval_interval=5000
 train.log_interval=1000
 train.policy_checkpoint_interval=5000
-train.rb_checkpoint_interval=2000
+train.policy_save_interval=200000
 train.summary_interval=10
 train.summaries_flush_secs=10
+
+Agent.lr=0.00075
+Agent.discount_factor=0.99
+Agent.epsilon=0.03
+Agent.batch_size=64
+Agent.fc_layer_params=(256, 256)
 
 SpaceshipEnv.screen_dimension = (800, 500)
 SpaceshipEnv.shaped_rewards = False
