@@ -14,28 +14,25 @@ from spaceship_agent import Agent
 
 from replay_buffer import ReplayBuffer
 
+# import train # import for gin config
+
 import spaceship_util
 
-import eval
+import video_util
 
 @gin.configurable
-def train(
+def eval(
     policy_file,
     num_steps,
-    initial_collect_steps,
-    replay_buffer_max_length,
-    eval_interval,
+    num_eval_episodes,
     log_interval,
-    policy_checkpoint_interval,
-    policy_save_interval,
     summary_interval=10,
 ):
 
-  _, train_dir, _, saved_model_dir = spaceship_util.get_dirs()
+  root_dir, train_dir, eval_dir, saved_model_dir = spaceship_util.get_dirs()
 
   train_env = SpaceshipEnv()
-  eval_env = SpaceshipEnv()
-
+  
   #
   # Agent
   #
@@ -47,7 +44,7 @@ def train(
 
   agent = Agent(
     step_var=step_var, 
-    replay_buffer=ReplayBuffer(replay_buffer_max_length, input_dims),
+    replay_buffer=None,
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
 
@@ -79,14 +76,9 @@ def train(
     start_time = time.time()
 
     action = agent.policy(state)
-    new_state, reward, terminated, truncated, _ = train_env.step(action)
+    state, reward, terminated, truncated, _ = train_env.step(action)
     done = terminated
     score += reward
-    agent.store_tuple(state, action, reward, new_state, done)
-    state = new_state
-
-    if step > (initial_collect_steps + start_step):
-      agent.train()
 
     time_acc += time.time() - start_time
     step_var.assign_add(1)
@@ -97,8 +89,8 @@ def train(
       scores.append(score)
       avg_score = np.mean(scores[-100:])
       steps_per_sec = (step - timed_at_step) / time_acc
-      print("Episode {0}, Step: {1} , AVG Score: {2}, Steps/sec: {3}"
-            .format(episode, step, avg_score, steps_per_sec))
+      print("Episode {0}, Step: {1} , Score: {2}, AVG Score: {3}, Steps/sec: {4}"
+            .format(episode, step, score, avg_score, steps_per_sec))
 
       # Reset Summary data
       episode += 1
@@ -106,14 +98,8 @@ def train(
       state, _ = train_env.reset()
       timed_at_step, time_acc = step, 0
 
-    if step % policy_save_interval == 0:
-      agent.save(saved_model_dir, step)
-
-    if step % policy_checkpoint_interval == 0:
-      policy_checkpointer.save()
-
   agent.save(saved_model_dir, step)
 
 if __name__ == "__main__":
-  gin.parse_config_file('config/train.gin')
-  train()
+  gin.parse_config_file('config/base.gin')
+  eval()

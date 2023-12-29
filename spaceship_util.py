@@ -3,6 +3,8 @@ import time
 import tensorflow as tf
 import ffmpeg
 import imageio
+import gin
+import gin.tf
 
 def create_policy_eval_video(py_env, policy, filename, num_episodes=5, fps=30):
   with imageio.get_writer(filename, fps=fps) as video:
@@ -19,6 +21,7 @@ def ensure_dir(dir):
     tf.io.gfile.makedirs(dir)
   return dir
 
+@gin.configurable
 def get_dirs(root_dir):
   root_dir = ensure_dir(os.path.expanduser(root_dir))
   train_dir = ensure_dir(os.path.join(root_dir, 'train'))

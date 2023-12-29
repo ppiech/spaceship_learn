@@ -1,17 +1,12 @@
 # train.policy_file='log/policy_saved_model/6000.keras'
 
-train.root_dir='log'
-train.policy_file=None
-train.num_steps=50000
-train.initial_collect_steps=1000
-train.replay_buffer_max_length=100000
-train.num_eval_episodes=10
-train.eval_interval=5000
-train.log_interval=1000
-train.policy_checkpoint_interval=5000
-train.policy_save_interval=200000
-train.summary_interval=10
-train.summaries_flush_secs=10
+get_dirs.root_dir='log'
+
+eval.policy_file=None
+eval.num_steps=50000
+eval.log_interval=1000
+eval.summary_interval=10
+eval.num_eval_episodes=10
 
 Agent.lr=0.00075
 Agent.discount_factor=0.99

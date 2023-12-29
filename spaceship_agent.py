@@ -94,6 +94,7 @@ class Agent:
   
   def restore_from_checkpoint(self, ckpt):
     self.policy_checkpoint.restore(ckpt).expect_partial()
+    self.q_target_net.set_weights(self.q_net.get_weights())
     # Workaround: optimizer parameters are not restored correctly by the checkpoint restore.  
     # Reset the optimizer to a new optimizer so it won't attempt to load the mismatched 
     # optimizer variables. 
@@ -105,6 +106,7 @@ class Agent:
 
   def load(self, filename):
     self.q_net = tf.keras.models.load_model(filename)
+    self.q_target_net.set_weights(self.q_net.get_weights())
 
   def test(self, env, num_episodes, file, graph):
     clock = pg.time.Clock()
