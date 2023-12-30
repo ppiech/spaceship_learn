@@ -17,6 +17,7 @@ from replay_buffer import ReplayBuffer
 # import train # import for gin config
 
 import spaceship_util
+from inverse_dynamics import InverseDynamics
 
 import video_util
 
@@ -48,9 +49,6 @@ def eval(
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
 
-  # if file:
-  #   agent.load(file, env)
-
   policy_checkpointer = tf.train.CheckpointManager(
       checkpoint=agent.policy_checkpoint,
       directory=os.path.join(train_dir),
@@ -61,13 +59,20 @@ def eval(
   elif policy_checkpointer.latest_checkpoint:
     agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
 
+  inverse_dynamics = InverseDynamics(
+    step_var=step_var, 
+    replay_buffer=None,
+    num_actions=train_env.action_space.n, 
+    input_dims=input_dims)
+
   step = step_var.numpy()
 
   # Summary data
-  start_step = step
   episode = 1
   scores = []
   score = 0.0
+  inverse_dynamic_guess_rate = (0.0, 0.0) # (correct, total)
+
   state, _ = train_env.reset()
   timed_at_step, time_acc = step, 0
 
@@ -76,9 +81,14 @@ def eval(
     start_time = time.time()
 
     action = agent.policy(state)
-    state, reward, terminated, truncated, _ = train_env.step(action)
+    new_state, reward, terminated, truncated, _ = train_env.step(action)
     done = terminated
     score += reward
+    predicted_action = inverse_dynamics.infer_action(state, new_state) 
+    inverse_dynamic_guess_rate = (
+      inverse_dynamic_guess_rate[0] + (predicted_action == action), 
+      inverse_dynamic_guess_rate[1] + 1)
+    state = new_state
 
     time_acc += time.time() - start_time
     step_var.assign_add(1)
@@ -88,9 +98,10 @@ def eval(
       # Print summary
       scores.append(score)
       avg_score = np.mean(scores[-100:])
+      inverse_action_accuracy = inverse_dynamic_guess_rate[0] / inverse_dynamic_guess_rate[1]
       steps_per_sec = (step - timed_at_step) / time_acc
-      print("Episode {0}, Step: {1} , Score: {2}, AVG Score: {3}, Steps/sec: {4}"
-            .format(episode, step, score, avg_score, steps_per_sec))
+      print("Episode {}, Step: {} , Score: {:2.2f}, AVG Score: {:2.2f}, Inverse Dynamic Accuracy: {:0.2f}, Steps/sec: {:4.0f}"
+            .format(episode, step, score, avg_score, inverse_action_accuracy, steps_per_sec))
 
       # Reset Summary data
       episode += 1

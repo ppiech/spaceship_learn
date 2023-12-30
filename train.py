@@ -63,13 +63,13 @@ def train(
   elif policy_checkpointer.latest_checkpoint:
     agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
 
-  step = step_var.numpy()
-
   inverse_dynamics = InverseDynamics(
     step_var=step_var, 
     replay_buffer=replay_buffer,
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
+
+  step = step_var.numpy()
 
   # Summary data
   start_step = step
@@ -94,7 +94,6 @@ def train(
     if step > (initial_collect_steps + start_step):
       agent.train()
       inverse_dynamics.train()
-
 
     time_acc += time.time() - start_time
     step_var.assign_add(1)
