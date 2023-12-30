@@ -14,7 +14,7 @@ from tensorflow.keras.optimizers import Adam
 
 from replay_buffer import ReplayBuffer
 
-def DeepQNetwork(lr, num_actions, input_dims, fc_layer_params):
+def InverseDynamicsNetwork(lr, num_actions, input_dims, fc_layer_params):
   q_net = Sequential()
   q_net.add(Dense(fc_layer_params[0], input_dim=input_dims, activation='relu'))
   for i in range(1, len(fc_layer_params)):
@@ -25,38 +25,28 @@ def DeepQNetwork(lr, num_actions, input_dims, fc_layer_params):
   return q_net
 
 @gin.configurable
-class Agent:
+class InverseDynamics:
   def __init__(self, 
-               step_var, 
                replay_buffer,
-               lr, 
-               discount_factor, 
-               num_actions, 
-               epsilon, 
-               batch_size, 
                input_dims, 
+               num_actions,
+               lr, 
+               batch_size,
                fc_layer_params):
     self.lr = lr
     self.action_space = [i for i in range(num_actions)]
-    self.discount_factor = discount_factor
-    self.epsilon = epsilon
     self.batch_size = batch_size
-    self.epsilon_decay = 0.0001
-    self.epsilon_final = 0.03
-    self.step_var = step_var
-    self.tau = 0.001
     self.buffer = replay_buffer
-    self.q_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
-    self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
-    self.policy_checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)
+    self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
+    self.checkpoint = tf.train.Checkpoint(model=self.net)
 
-  def policy(self, observation):
-    if np.random.random() < self.epsilon:
-      action = np.random.choice(self.action_space)
-    else:
-      state = np.array([observation])
-      actions = self.q_net(state)
-      action = tf.math.argmax(actions, axis=1).numpy()[0]
+  def infer_action(self, state, next_state):
+    state_and_next_state = np.concatenate((
+      np.array([state]), 
+      np.array([next_state])), 
+      axis=-1)
+    actions = self.net(state_and_next_state)
+    action = tf.math.argmax(actions, axis=1).numpy()[0]
 
     return action
   
@@ -68,6 +58,8 @@ class Agent:
     step_counter = self.step_var.numpy()
     if self.buffer.counter < self.batch_size or step_counter % 10 != 0:
       return
+    # if step_counter % self.update_rate == 0:
+      # self.q_target_net.set_weights(self.q_net.get_weights())
     self.soft_update(self.q_net, self.q_target_net)
     state_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)

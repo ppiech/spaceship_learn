@@ -10,9 +10,10 @@ import numpy as np
 import tensorflow as tf
 
 from spaceship_env import SpaceshipEnv
-from spaceship_agent import Agent
 
+from spaceship_agent import Agent
 from replay_buffer import ReplayBuffer
+from inverse_dynamics import InverseDynamics
 
 import spaceship_util
 
@@ -34,7 +35,6 @@ def train(
   _, train_dir, _, saved_model_dir = spaceship_util.get_dirs()
 
   train_env = SpaceshipEnv()
-  eval_env = SpaceshipEnv()
 
   #
   # Agent
@@ -45,14 +45,13 @@ def train(
 
   input_dims = train_env.observation_space.shape[0]
 
+  replay_buffer = ReplayBuffer(replay_buffer_max_length, input_dims)
+
   agent = Agent(
     step_var=step_var, 
-    replay_buffer=ReplayBuffer(replay_buffer_max_length, input_dims),
+    replay_buffer=replay_buffer,
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
-
-  # if file:
-  #   agent.load(file, env)
 
   policy_checkpointer = tf.train.CheckpointManager(
       checkpoint=agent.policy_checkpoint,
@@ -65,6 +64,11 @@ def train(
     agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
 
   step = step_var.numpy()
+
+  inverse_dynamics = InverseDynamics(
+    replay_buffer=replay_buffer,
+    num_actions=train_env.action_space.n, 
+    input_dims=input_dims)
 
   # Summary data
   start_step = step
@@ -82,7 +86,8 @@ def train(
     new_state, reward, terminated, truncated, _ = train_env.step(action)
     done = terminated
     score += reward
-    agent.store_tuple(state, action, reward, new_state, done)
+    replay_buffer.store_tuples(state, action, reward, new_state, done)
+    predicted_action = inverse_dynamics.infer_action(state, new_state)
     state = new_state
 
     if step > (initial_collect_steps + start_step):
