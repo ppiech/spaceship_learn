@@ -11,6 +11,7 @@ import gin.tf
 from tensorflow.keras import Sequential
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.utils import to_categorical
 
 from replay_buffer import ReplayBuffer
 
@@ -19,14 +20,15 @@ def InverseDynamicsNetwork(lr, num_actions, input_dims, fc_layer_params):
   q_net.add(Dense(fc_layer_params[0], input_dim=input_dims, activation='relu'))
   for i in range(1, len(fc_layer_params)):
     q_net.add(Dense(fc_layer_params[i], activation='relu'))
-  q_net.add(Dense(num_actions, activation=None))
-  q_net.compile(optimizer=Adam(learning_rate=lr), loss='mse')
+  q_net.add(Dense(num_actions, activation='softmax'))
+  q_net.compile(optimizer=Adam(learning_rate=lr), loss='categorical_crossentropy')
 
   return q_net
 
 @gin.configurable
 class InverseDynamics:
   def __init__(self, 
+               step_var, 
                replay_buffer,
                input_dims, 
                num_actions,
@@ -35,6 +37,7 @@ class InverseDynamics:
                fc_layer_params):
     self.lr = lr
     self.action_space = [i for i in range(num_actions)]
+    self.step_var = step_var
     self.batch_size = batch_size
     self.buffer = replay_buffer
     self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
@@ -50,33 +53,26 @@ class InverseDynamics:
 
     return action
   
-  def soft_update(self, q_net, target_net):
-    for target_weights, q_net_weights in zip(target_net.weights, q_net.weights):
-      target_weights.assign(self.tau * q_net_weights + (1.0 - self.tau) * target_weights)
-
   def train(self):
     step_counter = self.step_var.numpy()
+
+    # Train only every 10 steps, and after at least a batch woth of experience is 
+    # accumulated
     if self.buffer.counter < self.batch_size or step_counter % 10 != 0:
       return
-    # if step_counter % self.update_rate == 0:
-      # self.q_target_net.set_weights(self.q_net.get_weights())
-    self.soft_update(self.q_net, self.q_target_net)
+
+    # Random select an experience sample
     state_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
-    q_predicted = self.q_net(state_batch)
-    q_next = self.q_target_net(new_state_batch)
-    q_max_next = tf.math.reduce_max(q_next, axis=1, keepdims=True).numpy()
-    q_target = np.copy(q_predicted)
+    state_and_next_state_batch = np.concatenate(
+      (state_batch, new_state_batch), axis=-1)
 
-    for idx in range(done_batch.shape[0]):
-      target_q_val = reward_batch[idx]
-      if not done_batch[idx]:
-        target_q_val += self.discount_factor*q_max_next[idx]
-      q_target[idx, action_batch[idx]] = target_q_val
-      
-    self.q_net.train_on_batch(state_batch, q_target)
-    self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
+    # Convert the ground truth actions into logits
+    a_target = to_categorical(action_batch, num_classes=3)
+
+    # Train on batch
+    self.net.train_on_batch(state_and_next_state_batch, a_target)
   
   def restore_from_checkpoint(self, ckpt):
     self.policy_checkpoint.restore(ckpt).expect_partial()

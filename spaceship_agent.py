@@ -66,24 +66,37 @@ class Agent:
 
   def train(self):
     step_counter = self.step_var.numpy()
+
+    # Train only every 10 steps, and after at least a batch woth of experience is 
+    # accumulated
     if self.buffer.counter < self.batch_size or step_counter % 10 != 0:
       return
+    
+    # Update the target network weights with a weighted average with q_net 
     self.soft_update(self.q_net, self.q_target_net)
+
+    # Random select an experience sample
     state_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
+    # 
     q_predicted = self.q_net(state_batch)
     q_next = self.q_target_net(new_state_batch)
     q_max_next = tf.math.reduce_max(q_next, axis=1, keepdims=True).numpy()
-    q_target = np.copy(q_predicted)
 
+    # Set the ground Q value to teh truth reward value plus discounted Q-value
+    # determined by the target network.
+    q_target = np.copy(q_predicted)
     for idx in range(done_batch.shape[0]):
       target_q_val = reward_batch[idx]
       if not done_batch[idx]:
         target_q_val += self.discount_factor*q_max_next[idx]
       q_target[idx, action_batch[idx]] = target_q_val
       
+    # Performd gradient descent and parameter update on the q_net
     self.q_net.train_on_batch(state_batch, q_target)
+
+    # Decay the random action selection.
     self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
   
   def restore_from_checkpoint(self, ckpt):
