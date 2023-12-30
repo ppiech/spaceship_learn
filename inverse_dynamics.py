@@ -75,17 +75,18 @@ class InverseDynamics:
     self.net.train_on_batch(state_and_next_state_batch, a_target)
   
   def restore_from_checkpoint(self, ckpt):
-    self.policy_checkpoint.restore(ckpt).expect_partial()
-    self.q_target_net.set_weights(self.q_net.get_weights())
-    # Workaround: optimizer parameters are not restored correctly by the checkpoint restore.  
-    # Reset the optimizer to a new optimizer so it won't attempt to load the mismatched 
-    # optimizer variables. 
-    self.q_net.compile(optimizer=Adam(learning_rate=self.lr), loss='mse')
+    self.checkpoint.restore(ckpt).expect_partial()
+    # # Workaround: optimizer parameters are not restored correctly by the checkpoint restore.  
+    # # Reset the optimizer to a new optimizer so it won't attempt to load the mismatched 
+    # # optimizer variables. 
+    # self.q_net.compile(optimizer=Adam(learning_rate=self.lr), loss='mse')
 
-  def save(self, saved_model_dir, step):
-    filename = os.path.join(saved_model_dir, "{0}.keras".format(step))
-    self.q_net.save(filename)
+  def save_filename(self, save_dir):
+    return os.path.join(save_dir, "inverse_dynamics.keras")
 
-  def load(self, filename):
-    self.q_net = tf.keras.models.load_model(filename)
+  def save(self, save_dir):
+    self.q_net.save(self.save_filename(save_dir))
+
+  def load(self, save_dir):
+    self.q_net = tf.keras.models.load_model(self.save_filename(save_dir))
     self.q_target_net.set_weights(self.q_net.get_weights())

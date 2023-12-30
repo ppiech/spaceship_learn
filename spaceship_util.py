@@ -26,6 +26,6 @@ def get_dirs(root_dir):
   root_dir = ensure_dir(os.path.expanduser(root_dir))
   train_dir = ensure_dir(os.path.join(root_dir, 'train'))
   eval_dir = ensure_dir(os.path.join(root_dir, 'eval'))
-  saved_model_dir = ensure_dir(os.path.join(root_dir, 'policy_saved_model'))
+  saved_model_dir = ensure_dir(os.path.join(root_dir, 'saved_models'))
 
   return root_dir, train_dir, eval_dir, saved_model_dir

@@ -23,7 +23,7 @@ import video_util
 
 @gin.configurable
 def eval(
-    policy_file,
+    load_dir,
     num_steps,
     num_eval_episodes,
     log_interval,
@@ -50,12 +50,12 @@ def eval(
     input_dims=input_dims)
 
   policy_checkpointer = tf.train.CheckpointManager(
-      checkpoint=agent.policy_checkpoint,
+      checkpoint=agent.checkpoint,
       directory=os.path.join(train_dir),
       max_to_keep=2)
 
-  if policy_file:
-    agent.load(policy_file)
+  if load_dir:
+    agent.load(load_dir)
   elif policy_checkpointer.latest_checkpoint:
     agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
 

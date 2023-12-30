@@ -1,8 +1,8 @@
-# train.policy_file='log/policy_saved_model/6000.keras'
+# eval.load_dir='log/saved_models/6000'
 
 get_dirs.root_dir='log'
 
-eval.policy_file=None
+eval.load_dir=None
 eval.num_steps=50000
 eval.log_interval=1000
 eval.summary_interval=10

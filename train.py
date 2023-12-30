@@ -21,14 +21,14 @@ import eval
 
 @gin.configurable
 def train(
-    policy_file,
+    load_dir,
     num_steps,
     initial_collect_steps,
     replay_buffer_max_length,
     eval_interval,
     log_interval,
-    policy_checkpoint_interval,
-    policy_save_interval,
+    checkpoint_interval,
+    save_interval,
     summary_interval=10,
 ):
 
@@ -54,12 +54,12 @@ def train(
     input_dims=input_dims)
 
   policy_checkpointer = tf.train.CheckpointManager(
-      checkpoint=agent.policy_checkpoint,
-      directory=os.path.join(train_dir),
+      checkpoint=agent.checkpoint,
+      directory=os.path.join(train_dir, 'policy'),
       max_to_keep=2)
 
-  if policy_file:
-    agent.load(policy_file)
+  if load_dir:
+    agent.load(load_dir)
   elif policy_checkpointer.latest_checkpoint:
     agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
 
@@ -68,6 +68,17 @@ def train(
     replay_buffer=replay_buffer,
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
+
+  inverse_dynamics_checkpointer = tf.train.CheckpointManager(
+    checkpoint=inverse_dynamics.checkpoint,
+    directory=os.path.join(train_dir, 'inverse_dynamics'),
+    max_to_keep=2)
+
+  if load_dir:
+    inverse_dynamics.load(load_dir)
+  elif inverse_dynamics_checkpointer.latest_checkpoint:
+    inverse_dynamics.restore_from_checkpoint(inverse_dynamics_checkpointer.latest_checkpoint)
+
 
   step = step_var.numpy()
 
@@ -113,11 +124,15 @@ def train(
       state, _ = train_env.reset()
       timed_at_step, time_acc = step, 0
 
-    if step % policy_save_interval == 0:
-      agent.save(saved_model_dir, step)
+    if step % save_interval == 0:
+      save_dir = os.path.join(saved_model_dir, "{0}".format(step))
+      spaceship_util.ensure_dir(save_dir)
+      agent.save(save_dir)
+      inverse_dynamics.save(save_dir)
 
-    if step % policy_checkpoint_interval == 0:
+    if step % checkpoint_interval == 0:
       policy_checkpointer.save()
+      inverse_dynamics_checkpointer.save()
 
   agent.save(saved_model_dir, step)
 

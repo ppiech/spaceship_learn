@@ -48,7 +48,7 @@ class Agent:
     self.buffer = replay_buffer
     self.q_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
     self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
-    self.policy_checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)
+    self.checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)
 
   def policy(self, observation):
     if np.random.random() < self.epsilon:
@@ -100,17 +100,19 @@ class Agent:
     self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
   
   def restore_from_checkpoint(self, ckpt):
-    self.policy_checkpoint.restore(ckpt).expect_partial()
+    self.checkpoint.restore(ckpt).expect_partial()
     self.q_target_net.set_weights(self.q_net.get_weights())
     # Workaround: optimizer parameters are not restored correctly by the checkpoint restore.  
     # Reset the optimizer to a new optimizer so it won't attempt to load the mismatched 
     # optimizer variables. 
     self.q_net.compile(optimizer=Adam(learning_rate=self.lr), loss='mse')
 
-  def save(self, saved_model_dir, step):
-    filename = os.path.join(saved_model_dir, "{0}.keras".format(step))
-    self.q_net.save(filename)
+  def save_filename(self, save_dir):
+    return os.path.join(save_dir, "policy.keras")
 
-  def load(self, filename):
-    self.q_net = tf.keras.models.load_model(filename)
+  def save(self, save_dir):
+    self.q_net.save(self.save_filename(save_dir))
+
+  def load(self, save_dir):
+    self.q_net = tf.keras.models.load_model(self.save_filename(save_dir))
     self.q_target_net.set_weights(self.q_net.get_weights())
