@@ -4,7 +4,7 @@ get_dirs.root_dir='log'
 
 eval.load_dir=None
 eval.num_steps=50000
-eval.log_interval=1000
+eval.log_interval=3000
 eval.summary_interval=10
 eval.num_eval_episodes=10
 

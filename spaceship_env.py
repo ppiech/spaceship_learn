@@ -58,7 +58,9 @@ class SpaceshipEnv(gym.Env):
     self.target = Target(
         np.array([500, 500]), np.array([0, 0]), (30, 30), (200, 30, 30)
     )
-    self.ui = Ui(self.screen_dimension)
+
+    # Late init UI once the display mode is known
+    self.ui = None
 
   def return_state(self):
     return np.array([
@@ -174,6 +176,9 @@ class SpaceshipEnv(gym.Env):
     return False
 
   def render(self, mode='rgb_array'):
+    if self.ui == None:
+      self.ui = Ui(self.screen_dimension, mode)
+
     pixels = self.ui.draw(self.spaceship, self.target)
     pixels = pixels.transpose(1, 0, 2)  # convert from pygame coordinates
     # image = PIL.Image.fromarray(pixels)
@@ -242,16 +247,19 @@ class Target(Body):
 
 class Ui:
 
-  def __init__(self, screen_dimension):
+  def __init__(self, screen_dimension, mode):
     self.screen_dimension = screen_dimension
-    self.screen = pg.surface.Surface(self.screen_dimension)
+    if mode == 'human':
+        self.screen = pg.display.set_mode((self.screen_dimension), pg.RESIZABLE)
+        self.screen.fill(BACKGROUND_COLOR)
+    else:
+        self.screen = pg.surface.Surface(self.screen_dimension)
 
   def draw(self, spaceship, target):
     self.screen.fill(BACKGROUND_COLOR)
     spaceship.draw(self.screen)
     target.draw(self.screen)
     return pg.surfarray.pixels3d(self.screen)
-
 
 if __name__ == '__main__':
   env = SpaceshipEnv()

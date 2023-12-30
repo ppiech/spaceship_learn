@@ -76,10 +76,6 @@ class InverseDynamics:
   
   def restore_from_checkpoint(self, ckpt):
     self.checkpoint.restore(ckpt).expect_partial()
-    # # Workaround: optimizer parameters are not restored correctly by the checkpoint restore.  
-    # # Reset the optimizer to a new optimizer so it won't attempt to load the mismatched 
-    # # optimizer variables. 
-    # self.q_net.compile(optimizer=Adam(learning_rate=self.lr), loss='mse')
 
   def save_filename(self, save_dir):
     return os.path.join(save_dir, "inverse_dynamics.keras")
