@@ -6,10 +6,7 @@ import pygame.draw
 import pygame.surfarray
 
 import gin
-import gin.tf
-
 import gym
-
 
 # from tf_agents.environments import py_environment
 # from tf_agents.environments import utils
@@ -50,8 +47,8 @@ class SpaceshipEnv(gym.Env):
     )
     
     self.spaceship = Spaceship(
-        np.array([100, 100], dtype=np.int32),
-        np.array([0, 0], dtype=np.int32),
+        np.array([100, 100], dtype=np.float32),
+        np.array([0, 0], dtype=np.float32),
         0,
         [25, 50],
     )
@@ -179,8 +176,15 @@ class SpaceshipEnv(gym.Env):
     if self.ui == None:
       self.ui = Ui(self.screen_dimension, mode)
 
+    if mode == 'human':
+      pg.display.update()
+
     pixels = self.ui.draw(self.spaceship, self.target)
     pixels = pixels.transpose(1, 0, 2)  # convert from pygame coordinates
+
+    if mode == 'human':
+      pg.display.update()
+
     # image = PIL.Image.fromarray(pixels)
     # return image.convert('RGB')
     return pixels
@@ -293,8 +297,10 @@ if __name__ == '__main__':
                   unpause = True
                   break
 
-    time_step = env.step(action)
-    if time_step.is_last():
+    new_state, reward, terminated, truncated, _ = env.step(action)
+    print (new_state)
+
+    if terminated:
       env.reset()
       done = False
-    env.render()
+    env.render(mode='human')
