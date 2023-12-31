@@ -3,14 +3,17 @@
 get_dirs.root_dir='log'
 
 eval.load_dir=None
-eval.num_steps=50000
-eval.log_interval=3000
+eval.num_steps=5000
 eval.summary_interval=10
-eval.num_eval_episodes=10
+eval.max_steps_per_episode=1000
 
+Agent.train_interval=10
 Agent.lr=0.00075
 Agent.discount_factor=0.99
+Agent.target_network_soft_update_factor=0.001
 Agent.epsilon=0.03
+Agent.epsilon_decay=0.0001
+Agent.epsilon_final=0.01
 Agent.batch_size=64
 Agent.fc_layer_params=(256, 256)
 

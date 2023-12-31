@@ -81,8 +81,7 @@ class InverseDynamics:
     return os.path.join(save_dir, "inverse_dynamics.keras")
 
   def save(self, save_dir):
-    self.q_net.save(self.save_filename(save_dir))
+    self.net.save(self.save_filename(save_dir))
 
   def load(self, save_dir):
-    self.q_net = tf.keras.models.load_model(self.save_filename(save_dir))
-    self.q_target_net.set_weights(self.q_net.get_weights())
+    self.net = tf.keras.models.load_model(self.save_filename(save_dir))

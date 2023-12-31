@@ -29,22 +29,27 @@ class Agent:
   def __init__(self, 
                step_var, 
                replay_buffer,
+               train_interval,
                lr, 
-               discount_factor, 
+               discount_factor,
+               target_network_soft_update_factor,
                num_actions, 
-               epsilon, 
+               epsilon,
+               epsilon_decay,
+               epsilon_final,
                batch_size, 
                input_dims, 
                fc_layer_params):
     self.lr = lr
+    self.train_interval = train_interval
     self.action_space = [i for i in range(num_actions)]
     self.discount_factor = discount_factor
     self.epsilon = epsilon
     self.batch_size = batch_size
-    self.epsilon_decay = 0.0001
-    self.epsilon_final = 0.03
+    self.epsilon_decay = epsilon_decay
+    self.epsilon_final = epsilon_final
     self.step_var = step_var
-    self.tau = 0.001
+    self.target_network_soft_update_factor = target_network_soft_update_factor
     self.buffer = replay_buffer
     self.q_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
     self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
@@ -61,15 +66,16 @@ class Agent:
     return action
   
   def soft_update(self, q_net, target_net):
+    tau = self.target_network_soft_update_factor
     for target_weights, q_net_weights in zip(target_net.weights, q_net.weights):
-      target_weights.assign(self.tau * q_net_weights + (1.0 - self.tau) * target_weights)
+      target_weights.assign(tau * q_net_weights + (1.0 - tau) * target_weights)
 
   def train(self):
     step_counter = self.step_var.numpy()
 
     # Train only every 10 steps, and after at least a batch woth of experience is 
     # accumulated
-    if self.buffer.counter < self.batch_size or step_counter % 10 != 0:
+    if self.buffer.counter < self.batch_size or step_counter % self.train_interval != 0:
       return
     
     # Update the target network weights with a weighted average with q_net 

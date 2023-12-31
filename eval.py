@@ -25,9 +25,8 @@ import video_util
 def eval(
     load_dir,
     num_steps,
-    num_eval_episodes,
-    log_interval,
-    summary_interval=10,
+    max_steps_per_episode,
+    summary_interval=10
 ):
 
   root_dir, train_dir, eval_dir, saved_model_dir = spaceship_util.get_dirs()
@@ -69,47 +68,44 @@ def eval(
 
   # Summary data
   episode = 1
+  episode_start_step = step
   scores = []
   score = 0.0
   inverse_dynamic_guess_rate = (0.0, 0.0) # (correct, total)
 
   state, _ = train_env.reset()
-  timed_at_step, time_acc = step, 0
 
   while step < num_steps:
     logging.set_verbosity(logging.INFO)
-    start_time = time.time()
 
     action = agent.policy(state)
     new_state, reward, terminated, truncated, _ = train_env.step(action)
     done = terminated
     score += reward
     predicted_action = inverse_dynamics.infer_action(state, new_state) 
+
     inverse_dynamic_guess_rate = (
       inverse_dynamic_guess_rate[0] + (predicted_action == action), 
       inverse_dynamic_guess_rate[1] + 1)
     state = new_state
 
-    time_acc += time.time() - start_time
     step_var.assign_add(1)
     step = step_var.numpy()
 
-    if done:
-      # Print summary
+    if done or (step - episode_start_step)  > max_steps_per_episode:
       scores.append(score)
-      avg_score = np.mean(scores[-100:])
-      inverse_action_accuracy = inverse_dynamic_guess_rate[0] / inverse_dynamic_guess_rate[1]
-      steps_per_sec = (step - timed_at_step) / time_acc
-      print("Episode {}, Step: {} , Score: {:2.2f}, AVG Score: {:2.2f}, Inverse Dynamic Accuracy: {:0.2f}, Steps/sec: {:4.0f}"
-            .format(episode, step, score, avg_score, inverse_action_accuracy, steps_per_sec))
 
       # Reset Summary data
       episode += 1
       score = 0.0
+      episode_start_step = step
       state, _ = train_env.reset()
-      timed_at_step, time_acc = step, 0
 
-  agent.save(saved_model_dir, step)
+  # Print summary
+  avg_score = np.mean(scores)
+  inverse_action_accuracy = inverse_dynamic_guess_rate[0] / inverse_dynamic_guess_rate[1]
+  print("Episodes {}, Step: {} , AVG Score: {:2.2f}, Inverse Accuracy: {:0.2f}"
+        .format(episode, step, avg_score, inverse_action_accuracy))
 
 if __name__ == "__main__":
   gin.parse_config_file('config/base.gin')

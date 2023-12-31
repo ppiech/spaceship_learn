@@ -17,7 +17,7 @@ from inverse_dynamics import InverseDynamics
 
 import spaceship_util
 
-import eval
+from eval import eval
 
 @gin.configurable
 def train(
@@ -84,9 +84,6 @@ def train(
 
   # Summary data
   start_step = step
-  episode = 1
-  scores = []
-  score = 0.0
   state, _ = train_env.reset()
   timed_at_step, time_acc = step, 0
 
@@ -97,7 +94,6 @@ def train(
     action = agent.policy(state)
     new_state, reward, terminated, truncated, _ = train_env.step(action)
     done = terminated
-    score += reward
     replay_buffer.store_tuples(state, action, reward, new_state, done)
     predicted_action = inverse_dynamics.infer_action(state, new_state)
     state = new_state
@@ -111,18 +107,14 @@ def train(
     step = step_var.numpy()
 
     if done:
-      # Print summary
-      scores.append(score)
-      avg_score = np.mean(scores[-100:])
-      steps_per_sec = (step - timed_at_step) / time_acc
-      print("Episode {0}, Step: {1} , AVG Score: {2}, Steps/sec: {3}"
-            .format(episode, step, avg_score, steps_per_sec))
-
       # Reset Summary data
-      episode += 1
-      score = 0.0
       state, _ = train_env.reset()
+
+    if step % log_interval == 0:
+      steps_per_sec = (step - timed_at_step) / time_acc
       timed_at_step, time_acc = step, 0
+      
+      print("Step: {}, Steps/Sec: {:3f}".format(step, steps_per_sec))
 
     if step % save_interval == 0:
       save_dir = os.path.join(saved_model_dir, "{0}".format(step))
@@ -134,7 +126,9 @@ def train(
       policy_checkpointer.save()
       inverse_dynamics_checkpointer.save()
 
-  agent.save(saved_model_dir, step)
+    if step % eval_interval == 0:
+      # Eval, set load dir to None to force load from checkpoint
+      eval(load_dir=None) 
 
 if __name__ == "__main__":
   gin.parse_config_file('config/train.gin')
