@@ -26,10 +26,10 @@ def eval(
     load_dir,
     num_steps,
     max_steps_per_episode,
-    summary_interval=10
+    summary_interval
 ):
 
-  root_dir, train_dir, eval_dir, saved_model_dir = spaceship_util.get_dirs()
+  root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir = spaceship_util.get_dirs()
 
   train_env = SpaceshipEnv()
   

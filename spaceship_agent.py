@@ -54,6 +54,7 @@ class Agent:
     self.q_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
     self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
     self.checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)
+    self.train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
 
   def policy(self, observation):
     if np.random.random() < self.epsilon:
@@ -71,11 +72,11 @@ class Agent:
       target_weights.assign(tau * q_net_weights + (1.0 - tau) * target_weights)
 
   def train(self):
-    step_counter = self.step_var.numpy()
+    step = self.step_var.numpy()
 
     # Train only every 10 steps, and after at least a batch woth of experience is 
     # accumulated
-    if self.buffer.counter < self.batch_size or step_counter % self.train_interval != 0:
+    if self.buffer.counter < self.batch_size or step % self.train_interval != 0:
       return
     
     # Update the target network weights with a weighted average with q_net 
@@ -100,11 +101,14 @@ class Agent:
       q_target[idx, action_batch[idx]] = target_q_val
       
     # Performd gradient descent and parameter update on the q_net
-    self.q_net.train_on_batch(state_batch, q_target)
+    loss = self.q_net.train_on_batch(
+      state_batch, q_target, reset_metrics=True)
+
+    self.train_loss(loss)
 
     # Decay the random action selection.
-    self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final
-  
+    self.epsilon = self.epsilon - self.epsilon_decay if self.epsilon > self.epsilon_final else self.epsilon_final  
+
   def restore_from_checkpoint(self, ckpt):
     self.checkpoint.restore(ckpt).expect_partial()
     self.q_target_net.set_weights(self.q_net.get_weights())
@@ -122,3 +126,9 @@ class Agent:
   def load(self, save_dir):
     self.q_net = tf.keras.models.load_model(self.save_filename(save_dir))
     self.q_target_net.set_weights(self.q_net.get_weights())
+
+  def write_summaries(self, summary_writer, step):
+    with summary_writer.as_default():
+      tf.summary.scalar('policy_train_loss', self.train_loss.result(), step=step)
+  
+    self.train_loss.reset_states()

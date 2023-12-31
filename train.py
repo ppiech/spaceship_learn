@@ -29,10 +29,10 @@ def train(
     log_interval,
     checkpoint_interval,
     save_interval,
-    summary_interval=10,
+    summary_interval,
 ):
 
-  _, train_dir, _, saved_model_dir = spaceship_util.get_dirs()
+  _, train_dir, _, saved_model_dir, summary_dir = spaceship_util.get_dirs()
 
   train_env = SpaceshipEnv()
 
@@ -79,6 +79,7 @@ def train(
   elif inverse_dynamics_checkpointer.latest_checkpoint:
     inverse_dynamics.restore_from_checkpoint(inverse_dynamics_checkpointer.latest_checkpoint)
 
+  summary_writer = tf.summary.create_file_writer(summary_dir)
 
   step = step_var.numpy()
 
@@ -129,6 +130,9 @@ def train(
     if step % eval_interval == 0:
       # Eval, set load dir to None to force load from checkpoint
       eval(load_dir=None) 
+
+    if step % summary_interval == 0:
+      agent.write_summaries(summary_writer, step)
 
 if __name__ == "__main__":
   gin.parse_config_file('config/train.gin')

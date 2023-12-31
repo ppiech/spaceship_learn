@@ -5,6 +5,7 @@ import ffmpeg
 import imageio
 import gin
 import gin.tf
+import datetime
 
 def create_policy_eval_video(py_env, policy, filename, num_episodes=5, fps=30):
   with imageio.get_writer(filename, fps=fps) as video:
@@ -28,4 +29,8 @@ def get_dirs(root_dir):
   eval_dir = ensure_dir(os.path.join(root_dir, 'eval'))
   saved_model_dir = ensure_dir(os.path.join(root_dir, 'saved_models'))
 
-  return root_dir, train_dir, eval_dir, saved_model_dir
+  current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+  tensorboard_dir = os.path.join(root_dir, 'tensorboard')
+  summary_dir = ensure_dir(os.path.join(tensorboard_dir, current_time))
+
+  return root_dir, train_dir, eval_dir, saved_model_dir, summary_dir
