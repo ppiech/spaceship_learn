@@ -237,7 +237,7 @@ class Spaceship(Body):
       self.image = pg.transform.scale(self.image, self.size)
       
     image = pg.transform.rotate(self.image, self.rotation - 90)
-    screen.blit(image, self.pos)
+    screen.blit(image, (int(self.pos[0]), int(self.pos[1])))
 
 class Target(Body):
 
@@ -269,6 +269,7 @@ if __name__ == '__main__':
   env = SpaceshipEnv()
 
   env.render(mode='human')
+
   # pause = input('pause')
   clock = pg.time.Clock()
 
@@ -304,3 +305,4 @@ if __name__ == '__main__':
       env.reset()
       done = False
     env.render(mode='human')
+

@@ -20,5 +20,9 @@ InverseDynamics.lr=0.00075
 InverseDynamics.batch_size=64
 InverseDynamics.fc_layer_params=(256, 256)
 
+VideoRecorder.num_steps_to_capture = 2000
+VideoRecorder.capture_ever_n_frames = 4
+VideoRecorder.scale = 0.5
+
 SpaceshipEnv.screen_dimension = (800, 500)
 SpaceshipEnv.shaped_rewards = False

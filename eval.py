@@ -6,6 +6,8 @@ import time
 import gin
 import gin.tf
 import numpy as np
+import imageio
+import ffmpeg
 
 import tensorflow as tf
 
@@ -18,6 +20,7 @@ from replay_buffer import ReplayBuffer
 
 import spaceship_util
 from inverse_dynamics import InverseDynamics
+from spaceship_util import VideoRecorder
 
 import video_util
 
@@ -27,9 +30,9 @@ def eval(
     num_steps,
     max_steps_per_episode):
 
-  root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir = spaceship_util.get_dirs()
+  _, train_dir, eval_dir, _, tensorboard_dir = spaceship_util.get_dirs()
 
-  train_env = SpaceshipEnv()
+  env = SpaceshipEnv()
   
   #
   # Agent
@@ -38,12 +41,12 @@ def eval(
   step_var.assign(0)
   step = step_var.numpy()
 
-  input_dims = train_env.observation_space.shape[0]
+  input_dims = env.observation_space.shape[0]
 
   agent = Agent(
     step_var=step_var, 
     replay_buffer=None,
-    num_actions=train_env.action_space.n, 
+    num_actions=env.action_space.n, 
     input_dims=input_dims)
 
   policy_checkpointer = tf.train.CheckpointManager(
@@ -59,7 +62,7 @@ def eval(
   inverse_dynamics = InverseDynamics(
     step_var=step_var, 
     replay_buffer=None,
-    num_actions=train_env.action_space.n, 
+    num_actions=env.action_space.n, 
     input_dims=input_dims)
 
   inverse_dynamics_checkpointer = tf.train.CheckpointManager(
@@ -81,13 +84,20 @@ def eval(
   score_ave = tf.keras.metrics.Mean('score', dtype=tf.float32)
   inverse_dynamic_guess_rate = (0.0, 0.0) # (correct, total)
 
-  state, _ = train_env.reset()
+  state, _ = env.reset()
+
+  video_filename = os.path.join(tensorboard_dir, "eval-{}.gif".format(step))
+  video_recorder = VideoRecorder(env, video_filename)
+  video_recorder.capture_frame()
 
   for _ in range(num_steps):
     logging.set_verbosity(logging.INFO)
 
     action = agent.policy(state)
-    new_state, reward, terminated, truncated, _ = train_env.step(action)
+    new_state, reward, terminated, truncated, _ = env.step(action)
+
+    video_recorder.capture_frame()
+
     done = terminated
     score += reward
     predicted_action = inverse_dynamics.infer_action(state, new_state) 
@@ -107,7 +117,8 @@ def eval(
       episode += 1
       score = 0.0
       episode_start_step = step
-      state, _ = train_env.reset()
+      state, _ = env.reset()
+      video_recorder.capture_frame()
 
   # Print summary
   score_ave.result()
@@ -118,7 +129,6 @@ def eval(
   summary_writer = tf.summary.create_file_writer(tensorboard_dir)
   with summary_writer.as_default():
     tf.summary.scalar('episode_ave_score', score_ave.result(), step=step)
-
 
 if __name__ == "__main__":
   gin.parse_config_file('config/base.gin')

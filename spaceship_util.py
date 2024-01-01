@@ -1,21 +1,10 @@
 import os
 import time
 import tensorflow as tf
-import ffmpeg
 import imageio
+import PIL
 import gin
-import gin.tf
 import datetime
-
-def create_policy_eval_video(py_env, policy, filename, num_episodes=5, fps=30):
-  with imageio.get_writer(filename, fps=fps) as video:
-    for _ in range(num_episodes):
-      time_step = py_env.reset()
-      video.append_data(py_env.render())
-      while not time_step.is_last():
-        action_step = policy.action(time_step)
-        time_step = py_env.step(action_step.action)
-        video.append_data(py_env.render())
 
 def ensure_dir(dir):
   if not tf.io.gfile.exists(dir):
@@ -31,3 +20,33 @@ def get_dirs(root_dir):
   tensorboard_dir = ensure_dir(os.path.join(root_dir, 'tensorboard'))
 
   return root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir
+
+@gin.configurable
+class VideoRecorder:
+  def __init__(self, env, filename, num_steps_to_capture, capture_ever_n_frames, scale):
+    self.env = env
+    self.video_step = 0
+    self.video_steps = num_steps_to_capture
+    self.scale = scale
+    self.capture_ever_n_frames = capture_ever_n_frames
+    if self.video_steps > 0:
+      frame_rate = 25 / self.capture_ever_n_frames
+      self.video = imageio.get_writer(filename, fps=frame_rate)
+    
+  def capture_frame(self):
+    if self.video_step < self.video_steps:
+      if self.video_step % self.capture_ever_n_frames == 0:
+        
+        image_array = self.env.render()
+
+        if self.scale != 1:
+          im = PIL.Image.fromarray(image_array)
+          width = int(im.size[0] * self.scale)
+          height = int(im.size[1] * self.scale)
+          im = im.resize((width, height), PIL.Image.NEAREST)
+          image_array = im
+
+        self.video.append_data(image_array)
+
+      self.video_step += 1
+  
