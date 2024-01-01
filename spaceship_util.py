@@ -28,9 +28,6 @@ def get_dirs(root_dir):
   train_dir = ensure_dir(os.path.join(root_dir, 'train'))
   eval_dir = ensure_dir(os.path.join(root_dir, 'eval'))
   saved_model_dir = ensure_dir(os.path.join(root_dir, 'saved_models'))
+  tensorboard_dir = ensure_dir(os.path.join(root_dir, 'tensorboard'))
 
-  current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-  tensorboard_dir = os.path.join(root_dir, 'tensorboard')
-  summary_dir = ensure_dir(os.path.join(tensorboard_dir, current_time))
-
-  return root_dir, train_dir, eval_dir, saved_model_dir, summary_dir
+  return root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir

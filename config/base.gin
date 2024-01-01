@@ -4,7 +4,6 @@ get_dirs.root_dir='log'
 
 eval.load_dir=None
 eval.num_steps=5000
-eval.summary_interval=5000
 eval.max_steps_per_episode=1000
 
 Agent.train_interval=10

@@ -25,9 +25,7 @@ import video_util
 def eval(
     load_dir,
     num_steps,
-    max_steps_per_episode,
-    summary_interval
-):
+    max_steps_per_episode):
 
   root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir = spaceship_util.get_dirs()
 
@@ -50,7 +48,7 @@ def eval(
 
   policy_checkpointer = tf.train.CheckpointManager(
       checkpoint=agent.checkpoint,
-      directory=os.path.join(train_dir),
+      directory=os.path.join(train_dir, 'policy'),
       max_to_keep=2)
 
   if load_dir:
@@ -64,18 +62,28 @@ def eval(
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
 
+  inverse_dynamics_checkpointer = tf.train.CheckpointManager(
+    checkpoint=inverse_dynamics.checkpoint,
+    directory=os.path.join(train_dir, 'inverse_dynamics'),
+    max_to_keep=2)
+
+  if load_dir:
+    inverse_dynamics.load(load_dir)
+  elif inverse_dynamics_checkpointer.latest_checkpoint:
+    inverse_dynamics.restore_from_checkpoint(inverse_dynamics_checkpointer.latest_checkpoint)
+
   step = step_var.numpy()
 
   # Summary data
   episode = 1
   episode_start_step = step
-  scores = []
   score = 0.0
+  score_ave = tf.keras.metrics.Mean('score', dtype=tf.float32)
   inverse_dynamic_guess_rate = (0.0, 0.0) # (correct, total)
 
   state, _ = train_env.reset()
 
-  while step < num_steps:
+  for _ in range(num_steps):
     logging.set_verbosity(logging.INFO)
 
     action = agent.policy(state)
@@ -93,7 +101,7 @@ def eval(
     step = step_var.numpy()
 
     if done or (step - episode_start_step)  > max_steps_per_episode:
-      scores.append(score)
+      score_ave(score)
 
       # Reset Summary data
       episode += 1
@@ -102,10 +110,15 @@ def eval(
       state, _ = train_env.reset()
 
   # Print summary
-  avg_score = np.mean(scores)
+  score_ave.result()
   inverse_action_accuracy = inverse_dynamic_guess_rate[0] / inverse_dynamic_guess_rate[1]
   print("Episodes {}, Step: {} , AVG Score: {:2.2f}, Inverse Accuracy: {:0.2f}"
-        .format(episode, step, avg_score, inverse_action_accuracy))
+        .format(episode, step, score_ave.result(), inverse_action_accuracy))
+
+  summary_writer = tf.summary.create_file_writer(tensorboard_dir)
+  with summary_writer.as_default():
+    tf.summary.scalar('episode_ave_score', score_ave.result(), step=step)
+
 
 if __name__ == "__main__":
   gin.parse_config_file('config/base.gin')

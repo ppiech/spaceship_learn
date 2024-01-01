@@ -32,7 +32,7 @@ def train(
     summary_interval,
 ):
 
-  _, train_dir, _, saved_model_dir, summary_dir = spaceship_util.get_dirs()
+  _, train_dir, _, saved_model_dir, tensorboard_dir = spaceship_util.get_dirs()
 
   train_env = SpaceshipEnv()
 
@@ -79,7 +79,7 @@ def train(
   elif inverse_dynamics_checkpointer.latest_checkpoint:
     inverse_dynamics.restore_from_checkpoint(inverse_dynamics_checkpointer.latest_checkpoint)
 
-  summary_writer = tf.summary.create_file_writer(summary_dir)
+  summary_writer = tf.summary.create_file_writer(tensorboard_dir)
 
   step = step_var.numpy()
 
