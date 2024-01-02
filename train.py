@@ -50,34 +50,18 @@ def train(
   agent = Agent(
     step_var=step_var, 
     replay_buffer=replay_buffer,
+    checkpoints_dir=train_dir,
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
-
-  policy_checkpointer = tf.train.CheckpointManager(
-      checkpoint=agent.checkpoint,
-      directory=os.path.join(train_dir, 'policy'),
-      max_to_keep=2)
-
-  if load_dir:
-    agent.load(load_dir)
-  elif policy_checkpointer.latest_checkpoint:
-    agent.restore_from_checkpoint(policy_checkpointer.latest_checkpoint)
+  agent.restore(load_dir)
 
   inverse_dynamics = InverseDynamics(
-    step_var=step_var, 
+    step_var=step_var,     
     replay_buffer=replay_buffer,
+    checkpoints_dir=train_dir,
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
-
-  inverse_dynamics_checkpointer = tf.train.CheckpointManager(
-    checkpoint=inverse_dynamics.checkpoint,
-    directory=os.path.join(train_dir, 'inverse_dynamics'),
-    max_to_keep=2)
-
-  if load_dir:
-    inverse_dynamics.load(load_dir)
-  elif inverse_dynamics_checkpointer.latest_checkpoint:
-    inverse_dynamics.restore_from_checkpoint(inverse_dynamics_checkpointer.latest_checkpoint)
+  inverse_dynamics.restore(load_dir)
 
   summary_writer = tf.summary.create_file_writer(tensorboard_dir)
 
@@ -124,8 +108,8 @@ def train(
       inverse_dynamics.save(save_dir)
 
     if step % checkpoint_interval == 0:
-      policy_checkpointer.save()
-      inverse_dynamics_checkpointer.save()
+      agent.checkopint_manager.save()
+      inverse_dynamics.checkopint_manager.save()
 
     if step % eval_interval == 0:
       # Eval, set load dir to None to force load from checkpoint

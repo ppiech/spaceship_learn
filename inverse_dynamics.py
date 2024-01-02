@@ -30,6 +30,8 @@ class InverseDynamics:
   def __init__(self, 
                step_var, 
                replay_buffer,
+               checkpoints_dir,
+               max_checkpoints_to_keep,
                input_dims, 
                num_actions,
                lr, 
@@ -41,7 +43,13 @@ class InverseDynamics:
     self.batch_size = batch_size
     self.buffer = replay_buffer
     self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
+
+    self.name = "inverse_dynamics"
     self.checkpoint = tf.train.Checkpoint(model=self.net)
+    self.checkopint_manager = tf.train.CheckpointManager(
+      checkpoint=self.checkpoint,
+      directory=os.path.join(checkpoints_dir, self.name),
+      max_to_keep=max_checkpoints_to_keep)
 
   def infer_action(self, state, next_state):
     state_and_next_state = np.concatenate((
@@ -74,6 +82,13 @@ class InverseDynamics:
     # Train on batch
     self.net.train_on_batch(state_and_next_state_batch, a_target)
   
+  def restore(self, load_from_dir):
+    if load_from_dir:
+      self.load(load_from_dir)
+    elif self.checkopint_manager.latest_checkpoint:
+      self.restore_from_checkpoint(self.checkopint_manager.latest_checkpoint)
+
+
   def restore_from_checkpoint(self, ckpt):
     self.checkpoint.restore(ckpt).expect_partial()
 
