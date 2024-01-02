@@ -30,7 +30,7 @@ def eval(
     num_steps,
     max_steps_per_episode):
 
-  _, train_dir, eval_dir, _, tensorboard_dir = spaceship_util.get_dirs()
+  _, train_dir, eval_dir, _, tensorboard_dir, videos_dir = spaceship_util.get_dirs()
 
   env = SpaceshipEnv()
   
@@ -86,7 +86,7 @@ def eval(
 
   state, _ = env.reset()
 
-  video_filename = os.path.join(tensorboard_dir, "eval-{}.gif".format(step))
+  video_filename = os.path.join(videos_dir, "eval-{}.gif".format(step))
   video_recorder = VideoRecorder(env, video_filename)
   video_recorder.capture_frame()
 

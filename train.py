@@ -32,7 +32,7 @@ def train(
     summary_interval,
 ):
 
-  _, train_dir, _, saved_model_dir, tensorboard_dir = spaceship_util.get_dirs()
+  _, train_dir, _, saved_model_dir, tensorboard_dir, _ = spaceship_util.get_dirs()
 
   train_env = SpaceshipEnv()
 

@@ -1,5 +1,7 @@
 include 'config/base.gin'
 
+# train.load_dir='log-1/saved_models/2000000'
+
 train.load_dir=None
 train.num_steps=2_000_000
 train.initial_collect_steps=1000

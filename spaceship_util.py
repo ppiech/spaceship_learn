@@ -18,8 +18,9 @@ def get_dirs(root_dir):
   eval_dir = ensure_dir(os.path.join(root_dir, 'eval'))
   saved_model_dir = ensure_dir(os.path.join(root_dir, 'saved_models'))
   tensorboard_dir = ensure_dir(os.path.join(root_dir, 'tensorboard'))
+  videos_dir = ensure_dir(os.path.join(root_dir, 'videos'))
 
-  return root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir
+  return root_dir, train_dir, eval_dir, saved_model_dir, tensorboard_dir, videos_dir
 
 @gin.configurable
 class VideoRecorder:

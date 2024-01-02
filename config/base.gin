@@ -1,4 +1,3 @@
-# eval.load_dir='log/saved_models/6000'
 
 get_dirs.root_dir='log'
 
