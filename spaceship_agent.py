@@ -92,7 +92,7 @@ class Agent:
     self.soft_update(self.q_net, self.q_target_net)
 
     # Random select an experience sample
-    state_batch, action_batch, reward_batch, new_state_batch, done_batch = \
+    state_batch, goal_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
     # 

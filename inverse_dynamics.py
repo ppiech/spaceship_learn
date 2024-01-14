@@ -1,8 +1,5 @@
 import tensorflow as tf
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import pygame as pg
 import os
 
 import gin
@@ -70,7 +67,7 @@ class InverseDynamics:
       return
 
     # Random select an experience sample
-    state_batch, action_batch, reward_batch, new_state_batch, done_batch = \
+    state_batch, goals_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
     state_and_next_state_batch = np.concatenate(

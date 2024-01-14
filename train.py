@@ -17,6 +17,7 @@ from spaceship_env import SpaceshipEnv
 from spaceship_agent import Agent
 from replay_buffer import ReplayBuffer
 from inverse_dynamics import InverseDynamics
+from goaly import Goaly
 
 import spaceship_util
 
@@ -48,15 +49,10 @@ def train(
 
   input_dims = train_env.observation_space.shape[0]
 
-  replay_buffer = ReplayBuffer(replay_buffer_max_length, input_dims)
+  goaly = Goaly(step_var)
+  num_goals = goaly.num_goals
 
-  agent = Agent(
-    step_var=step_var, 
-    replay_buffer=replay_buffer,
-    checkpoints_dir=train_dir,
-    num_actions=train_env.action_space.n, 
-    input_dims=input_dims)
-  agent.restore(load_dir)
+  replay_buffer = ReplayBuffer(replay_buffer_max_length, input_dims, num_goals)
 
   inverse_dynamics = InverseDynamics(
     step_var=step_var,     
@@ -65,6 +61,14 @@ def train(
     num_actions=train_env.action_space.n, 
     input_dims=input_dims)
   inverse_dynamics.restore(load_dir)
+
+  agent = Agent(
+    step_var=step_var, 
+    replay_buffer=replay_buffer,
+    checkpoints_dir=train_dir,
+    num_actions=train_env.action_space.n, 
+    input_dims=input_dims)
+  agent.restore(load_dir)
 
   summary_writer = tf.summary.create_file_writer(tensorboard_dir)
 
@@ -82,7 +86,7 @@ def train(
     action = agent.policy(state)
     new_state, reward, terminated, truncated, _ = train_env.step(action)
     done = terminated
-    replay_buffer.store_tuples(state, action, reward, new_state, done)
+    replay_buffer.store_tuples(state, (1,), action, reward, new_state, done)
     predicted_action = inverse_dynamics.infer_action(state, new_state)
     state = new_state
 

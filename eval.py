@@ -20,6 +20,7 @@ from replay_buffer import ReplayBuffer
 import spaceship_util
 from inverse_dynamics import InverseDynamics
 from spaceship_util import VideoRecorder
+from goaly import Goaly
 
 
 
@@ -55,7 +56,6 @@ def eval(
     checkpoints_dir=train_dir,
     num_actions=env.action_space.n, 
     input_dims=input_dims)
-  print(load_dir)
   agent.restore(load_dir)
 
   inverse_dynamics = InverseDynamics(
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     eval()
 
   FLAGS = flags.FLAGS
-  
+
   flags.DEFINE_multi_string(
     'gin_file', 'config/base.gin', 'List of paths to the config files.')
   flags.DEFINE_multi_string(
