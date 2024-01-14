@@ -1,13 +1,12 @@
 from __future__ import absolute_import, division, print_function
 
 from absl import logging
+from absl import app
 import os
-import time
 import gin
 import gin.tf
 import numpy as np
-import imageio
-import ffmpeg
+from absl import flags
 
 import tensorflow as tf
 
@@ -22,7 +21,14 @@ import spaceship_util
 from inverse_dynamics import InverseDynamics
 from spaceship_util import VideoRecorder
 
-import video_util
+
+
+# flags.DEFINE_multi_string('gin_param', None, 'Gin parameter bindings.')
+# FLAGS = flags.FLAGS
+
+# gin.parse_config_files_and_bindings('config/base.gin', FLAGS.gin_param)
+
+
 
 @gin.configurable
 def eval(
@@ -49,6 +55,7 @@ def eval(
     checkpoints_dir=train_dir,
     num_actions=env.action_space.n, 
     input_dims=input_dims)
+  print(load_dir)
   agent.restore(load_dir)
 
   inverse_dynamics = InverseDynamics(
@@ -115,5 +122,15 @@ def eval(
     tf.summary.scalar('episode_ave_score', score_ave.result(), step=step)
 
 if __name__ == "__main__":
-  gin.parse_config_file('config/base.gin')
-  eval()
+
+  def main(argv):
+    gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
+    eval()
+
+  FLAGS = flags.FLAGS
+  
+  flags.DEFINE_multi_string(
+    'gin_file', 'config/base.gin', 'List of paths to the config files.')
+  flags.DEFINE_multi_string(
+    'gin_param', None, 'Newline separated list of Gin parameter bindings.')
+  app.run(main)

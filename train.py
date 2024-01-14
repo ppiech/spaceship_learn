@@ -1,6 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
 from absl import logging
+from absl import flags
+from absl import app
+
 import os
 import time
 import gin
@@ -119,5 +122,15 @@ def train(
       agent.write_summaries(summary_writer, step)
 
 if __name__ == "__main__":
-  gin.parse_config_file('config/train.gin')
-  train()
+
+  def main(argv):
+    gin.parse_config_files_and_bindings(FLAGS.gin_file, FLAGS.gin_param)
+    train()
+    
+  FLAGS = flags.FLAGS
+  
+  flags.DEFINE_multi_string(
+    'gin_file', 'config/train.gin', 'List of paths to the config files.')
+  flags.DEFINE_multi_string(
+    'gin_param', None, 'Newline separated list of Gin parameter bindings.')
+  app.run(main)
