@@ -50,13 +50,8 @@ def eval(
 
   input_dims = env.observation_space.shape[0]
 
-  agent = Agent(
-    step_var=step_var, 
-    replay_buffer=None,
-    checkpoints_dir=train_dir,
-    num_actions=env.action_space.n, 
-    input_dims=input_dims)
-  agent.restore(load_dir)
+  goaly = Goaly(step_var)
+  num_goals = goaly.num_goals
 
   inverse_dynamics = InverseDynamics(
     step_var=step_var, 
@@ -65,6 +60,15 @@ def eval(
     num_actions=env.action_space.n, 
     input_dims=input_dims)
   inverse_dynamics.restore(load_dir)
+
+  agent = Agent(
+    step_var=step_var, 
+    replay_buffer=None,
+    checkpoints_dir=train_dir,
+    num_actions=env.action_space.n, 
+    input_dims=input_dims, 
+    num_goals=num_goals)
+  agent.restore(load_dir)
 
   step = step_var.numpy()
 
@@ -84,7 +88,9 @@ def eval(
   for _ in range(num_steps):
     logging.set_verbosity(logging.INFO)
 
-    action = agent.policy(state)
+    goals = goaly.goal(state)
+
+    action = agent.policy(goals, state)
     new_state, reward, terminated, truncated, _ = env.step(action)
 
     video_recorder.capture_frame()

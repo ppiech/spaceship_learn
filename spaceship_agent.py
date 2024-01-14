@@ -41,6 +41,7 @@ class Agent:
                epsilon_final,
                batch_size, 
                input_dims, 
+               num_goals,
                fc_layer_params):
     self.lr = lr
     self.train_interval = train_interval
@@ -53,8 +54,9 @@ class Agent:
     self.step_var = step_var
     self.target_network_soft_update_factor = target_network_soft_update_factor
     self.buffer = replay_buffer
-    self.q_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
-    self.q_target_net = DeepQNetwork(lr, num_actions, input_dims, fc_layer_params)
+    model_input_size = input_dims + num_goals
+    self.q_net = DeepQNetwork(lr, num_actions, model_input_size, fc_layer_params)
+    self.q_target_net = DeepQNetwork(lr, num_actions, model_input_size, fc_layer_params)
 
     self.train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
 
@@ -65,12 +67,12 @@ class Agent:
       directory=os.path.join(checkpoints_dir, self.name),
       max_to_keep=max_checkpoints_to_keep)
 
-  def policy(self, observation):
+  def policy(self, goals, observation):
     if np.random.random() < self.epsilon:
       action = np.random.choice(self.action_space)
     else:
-      state = np.array([observation])
-      actions = self.q_net(state)
+      input = np.reshape(np.concatenate((goals, observation)), (1, -1))
+      actions = self.q_net(input)
       action = tf.math.argmax(actions, axis=1).numpy()[0]
 
     return action
@@ -95,9 +97,11 @@ class Agent:
     state_batch, goal_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
+    input_batch = np.concatenate((goal_batch, state_batch), axis=-1)
+    new_input_batch = np.concatenate((goal_batch, new_state_batch), axis=-1)
     # 
-    q_predicted = self.q_net(state_batch)
-    q_next = self.q_target_net(new_state_batch)
+    q_predicted = self.q_net(input_batch)
+    q_next = self.q_target_net(new_input_batch)
     q_max_next = tf.math.reduce_max(q_next, axis=1, keepdims=True).numpy()
 
     # Set the ground Q value to teh truth reward value plus discounted Q-value
@@ -111,7 +115,7 @@ class Agent:
       
     # Performd gradient descent and parameter update on the q_net
     loss = self.q_net.train_on_batch(
-      state_batch, q_target, reset_metrics=True)
+      input_batch, q_target, reset_metrics=True)
 
     self.train_loss(loss)
 

@@ -24,3 +24,6 @@ class Goaly:
 
   def goal(self, observation):
     return self.step_var.np() / 100 
+
+  def goal(self, observation):
+    return np.zeros(self.num_goals)

@@ -55,7 +55,7 @@ def train(
   replay_buffer = ReplayBuffer(replay_buffer_max_length, input_dims, num_goals)
 
   inverse_dynamics = InverseDynamics(
-    step_var=step_var,     
+    step_var=step_var,
     replay_buffer=replay_buffer,
     checkpoints_dir=train_dir,
     num_actions=train_env.action_space.n, 
@@ -67,7 +67,8 @@ def train(
     replay_buffer=replay_buffer,
     checkpoints_dir=train_dir,
     num_actions=train_env.action_space.n, 
-    input_dims=input_dims)
+    input_dims=input_dims, 
+    num_goals=num_goals)
   agent.restore(load_dir)
 
   summary_writer = tf.summary.create_file_writer(tensorboard_dir)
@@ -83,8 +84,11 @@ def train(
     logging.set_verbosity(logging.INFO)
     start_time = time.time()
 
-    action = agent.policy(state)
+    goals = goaly.goal(state)
+
+    action = agent.policy(goals, state)
     new_state, reward, terminated, truncated, _ = train_env.step(action)
+    
     done = terminated
     replay_buffer.store_tuples(state, (1,), action, reward, new_state, done)
     predicted_action = inverse_dynamics.infer_action(state, new_state)
