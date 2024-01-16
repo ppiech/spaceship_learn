@@ -19,6 +19,7 @@ from replay_buffer import ReplayBuffer
 
 import spaceship_util
 from inverse_dynamics import InverseDynamics
+from forward_dynamics import ForwardDynamics
 from spaceship_util import VideoRecorder
 from goaly import Goaly
 
@@ -51,6 +52,7 @@ def eval(
   input_dims = env.observation_space.shape[0]
 
   goaly = Goaly(step_var)
+  num_actions = env.action_space.n
   num_goals = goaly.num_goals
 
   inverse_dynamics = InverseDynamics(
@@ -60,6 +62,15 @@ def eval(
     num_actions=env.action_space.n, 
     input_dims=input_dims)
   inverse_dynamics.restore(load_dir)
+
+  forward_dynamics = ForwardDynamics(
+    step_var=step_var,
+    replay_buffer=None,
+    checkpoints_dir=train_dir,
+    num_goals=num_goals,
+    num_actions=env.action_space.n, 
+    input_dims=input_dims)
+  forward_dynamics.restore(load_dir)
 
   agent = Agent(
     step_var=step_var, 
@@ -77,7 +88,18 @@ def eval(
   episode_start_step = step
   score = 0.0
   score_ave = tf.keras.metrics.Mean('score', dtype=tf.float32)
-  inverse_dynamic_guess_rate = (0.0, 0.0) # (correct, total)
+  action_guess_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
+      name='action_guess_accuracy', dtype=None
+    )
+
+  goal_guess_overall_accuracies = tf.keras.metrics.BinaryAccuracy(
+        'goals_overall_accuracy', threshold=0.5, dtype=None)
+
+  goal_guess_accuracies = list(map(
+      lambda n: tf.keras.metrics.Mean(
+        'goal_%d_guess_accuracy'.format(n), dtype=tf.float32), 
+      range(num_goals)
+    ))
 
   state, _ = env.reset()
 
@@ -97,11 +119,18 @@ def eval(
 
     done = terminated
     score += reward
-    predicted_action = inverse_dynamics.infer_action(state, new_state) 
+    
+    predicted_actions_probabilibies = inverse_dynamics.infer_action(state, new_state) 
+    predicted_action = inverse_dynamics.action_from_probabilities(predicted_actions_probabilibies)
+    action_guess_accuracy.update_state(action, predicted_actions_probabilibies)
 
-    inverse_dynamic_guess_rate = (
-      inverse_dynamic_guess_rate[0] + (predicted_action == action), 
-      inverse_dynamic_guess_rate[1] + 1)
+    predicted_goal_probabilities = forward_dynamics.infer_goals(state, action)
+
+    # print(predicted_goal_probabilities)
+    goal_guess_overall_accuracies.update_state(goals, predicted_goal_probabilities)
+    for i in range(num_goals):
+      goal_guess_accuracies[i](goals[i] == (predicted_goal_probabilities[i] > 0.5))
+
     state = new_state
 
     step_var.assign_add(1)
@@ -119,9 +148,13 @@ def eval(
 
   # Print summary
   score_ave.result()
-  inverse_action_accuracy = inverse_dynamic_guess_rate[0] / inverse_dynamic_guess_rate[1]
-  print("Episodes {}, Step: {} , AVG Score: {:2.2f}, Inverse Accuracy: {:0.2f}"
-        .format(episode, step, score_ave.result(), inverse_action_accuracy))
+  print("")
+  print("Episodes {}, Step: {}".format(episode, step))
+  print("AVG Score: {:2.2f}".format(score_ave.result()))
+  print("Inverse Accuracy: {:0.2f}".format(action_guess_accuracy.result()))
+  print("Goals Overall Accuracy: {:0.2f}".format(goal_guess_overall_accuracies.result()))
+  for i in range(num_goals):
+    print("Goal {} Accuracy: {:0.2f}".format(i, goal_guess_accuracies[i].result()))
 
   summary_writer = tf.summary.create_file_writer(tensorboard_dir)
   with summary_writer.as_default():

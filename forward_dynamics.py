@@ -12,18 +12,21 @@ from tensorflow.keras.utils import to_categorical
 
 from replay_buffer import ReplayBuffer
 
-def InverseDynamicsNetwork(lr, num_actions, input_dims, fc_layer_params):
+def ForwardDynamicsNetwork(lr, input_dims, num_goals, fc_layer_params):
+
   q_net = Sequential()
   q_net.add(Dense(fc_layer_params[0], input_dim=input_dims, activation='relu'))
   for i in range(1, len(fc_layer_params)):
     q_net.add(Dense(fc_layer_params[i], activation='relu'))
-  q_net.add(Dense(num_actions, activation='softmax'))
-  q_net.compile(optimizer=Adam(learning_rate=lr), loss='categorical_crossentropy')
+  q_net.add(Dense(num_goals, activation='sigmoid'))
+  q_net.compile(
+    optimizer=Adam(learning_rate=lr), 
+    loss="mean_squared_logarithmic_error")
 
   return q_net
 
 @gin.configurable
-class InverseDynamics:
+class ForwardDynamics:
   def __init__(self, 
                step_var, 
                replay_buffer,
@@ -31,36 +34,34 @@ class InverseDynamics:
                checkpoints_dir,
                max_checkpoints_to_keep,
                input_dims, 
+               num_goals,
                num_actions,
                lr, 
                batch_size,
                fc_layer_params):
     self.lr = lr
-    self.num_action = num_actions
     self.step_var = step_var
     self.batch_size = batch_size
     self.buffer = replay_buffer
     self.train_interval = train_interval
-    self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
 
-    self.name = "inverse_dynamics"
+    model_input_size = input_dims + 1
+    self.net = ForwardDynamicsNetwork(lr, model_input_size, num_goals, fc_layer_params)
+
+    self.name = "forward_dynamics"
     self.checkpoint = tf.train.Checkpoint(model=self.net)
     self.checkopint_manager = tf.train.CheckpointManager(
       checkpoint=self.checkpoint,
       directory=os.path.join(checkpoints_dir, self.name),
       max_to_keep=max_checkpoints_to_keep)
 
-  def infer_action(self, state, next_state):
-    state_and_next_state = np.concatenate((
+  def infer_goals(self, state, action):
+    state_and_action = np.concatenate((
       np.array([state]), 
-      np.array([next_state])), 
+      np.array([[action]])), 
       axis=-1)
-    action_probabilities = self.net(state_and_next_state)
-
-    return action_probabilities[0]
-  
-  def action_from_probabilities(self, action_probabilities):
-    return tf.math.argmax(action_probabilities).numpy()
+    goals = self.net(state_and_action)
+    return goals[0]
   
   def train(self):
     step_counter = self.step_var.numpy()
@@ -74,20 +75,18 @@ class InverseDynamics:
     state_batch, goals_batch, action_batch, reward_batch, new_state_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
-    state_and_next_state_batch = np.concatenate(
-      (state_batch, new_state_batch), axis=-1)
-
-    # Convert the ground truth actions into logits
-    a_target = to_categorical(action_batch, num_classes=3)
+    state_and_action_batch = np.concatenate(
+      (state_batch, np.reshape(action_batch, (-1, 1))), axis=-1)
 
     # Train on batch
-    self.net.train_on_batch(state_and_next_state_batch, a_target)
+    self.net.train_on_batch(state_and_action_batch, goals_batch)
   
   def restore(self, load_from_dir):
     if load_from_dir:
       self.load(load_from_dir)
     elif self.checkopint_manager.latest_checkpoint:
       self.restore_from_checkpoint(self.checkopint_manager.latest_checkpoint)
+
 
   def restore_from_checkpoint(self, ckpt):
     self.checkpoint.restore(ckpt).expect_partial()

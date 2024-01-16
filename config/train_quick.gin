@@ -1,0 +1,8 @@
+include 'config/train.gin'
+
+train.load_dir=None
+train.log_interval=1_000
+train.checkpoint_interval=2_000
+train.eval_interval=2_000
+
+eval.num_steps=1000

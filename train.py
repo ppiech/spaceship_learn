@@ -17,6 +17,7 @@ from spaceship_env import SpaceshipEnv
 from spaceship_agent import Agent
 from replay_buffer import ReplayBuffer
 from inverse_dynamics import InverseDynamics
+from forward_dynamics import ForwardDynamics
 from goaly import Goaly
 
 import spaceship_util
@@ -38,7 +39,7 @@ def train(
 
   _, train_dir, _, saved_model_dir, tensorboard_dir, _ = spaceship_util.get_dirs()
 
-  train_env = SpaceshipEnv()
+  env = SpaceshipEnv()
 
   #
   # Agent
@@ -47,7 +48,7 @@ def train(
   step_var.assign(0)
   step = step_var.numpy()
 
-  input_dims = train_env.observation_space.shape[0]
+  input_dims = env.observation_space.shape[0]
 
   goaly = Goaly(step_var)
   num_goals = goaly.num_goals
@@ -58,15 +59,24 @@ def train(
     step_var=step_var,
     replay_buffer=replay_buffer,
     checkpoints_dir=train_dir,
-    num_actions=train_env.action_space.n, 
-    input_dims=input_dims)
+    input_dims=input_dims,
+    num_actions=env.action_space.n)
   inverse_dynamics.restore(load_dir)
+
+  forward_dynamics = ForwardDynamics(
+    step_var=step_var,
+    replay_buffer=replay_buffer,
+    checkpoints_dir=train_dir,
+    num_goals=num_goals,
+    num_actions=env.action_space.n, 
+    input_dims=input_dims)
+  forward_dynamics.restore(load_dir)
 
   agent = Agent(
     step_var=step_var, 
     replay_buffer=replay_buffer,
     checkpoints_dir=train_dir,
-    num_actions=train_env.action_space.n, 
+    num_actions=env.action_space.n, 
     input_dims=input_dims, 
     num_goals=num_goals)
   agent.restore(load_dir)
@@ -77,7 +87,7 @@ def train(
 
   # Summary data
   start_step = step
-  state, _ = train_env.reset()
+  state, _ = env.reset()
   timed_at_step, time_acc = step, 0
 
   while step < num_steps:
@@ -87,24 +97,26 @@ def train(
     goals = goaly.goal(state)
 
     action = agent.policy(goals, state)
-    new_state, reward, terminated, truncated, _ = train_env.step(action)
+    new_state, reward, terminated, truncated, _ = env.step(action)
     
     done = terminated
-    replay_buffer.store_tuples(state, (1,), action, reward, new_state, done)
-    predicted_action = inverse_dynamics.infer_action(state, new_state)
+    replay_buffer.store_tuples(state, goals, action, reward, new_state, done)
+    predicted_actions = inverse_dynamics.infer_action(state, new_state)
+    predicted_goal = forward_dynamics.infer_goals(state, action)
     state = new_state
 
     if step > (initial_collect_steps + start_step):
       agent.train()
+      forward_dynamics.train()
       inverse_dynamics.train()
-
+      
     time_acc += time.time() - start_time
     step_var.assign_add(1)
     step = step_var.numpy()
 
     if done:
       # Reset Summary data
-      state, _ = train_env.reset()
+      state, _ = env.reset()
 
     if step % log_interval == 0:
       steps_per_sec = (step - timed_at_step) / time_acc
@@ -116,10 +128,12 @@ def train(
       save_dir = os.path.join(saved_model_dir, "{0}".format(step))
       spaceship_util.ensure_dir(save_dir)
       agent.save(save_dir)
+      forward_dynamics.save(save_dir)
       inverse_dynamics.save(save_dir)
 
     if step % checkpoint_interval == 0:
       agent.checkopint_manager.save()
+      forward_dynamics.checkopint_manager.save()
       inverse_dynamics.checkopint_manager.save()
 
     if step % eval_interval == 0:

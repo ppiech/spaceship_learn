@@ -137,7 +137,7 @@ class Agent:
     self.q_net.compile(optimizer=Adam(learning_rate=self.lr), loss='mse')
 
   def save_filename(self, save_dir):
-    return os.path.join(save_dir, "policy.keras")
+    return os.path.join(save_dir, "%s.keras".format(self.name))
 
   def save(self, save_dir):
     self.q_net.save(self.save_filename(save_dir))
