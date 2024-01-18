@@ -43,6 +43,7 @@ class Agent:
                input_dims, 
                num_goals,
                fc_layer_params):
+    self.name = "policy"
     self.lr = lr
     self.train_interval = train_interval
     self.action_space = [i for i in range(num_actions)]
@@ -54,13 +55,13 @@ class Agent:
     self.step_var = step_var
     self.target_network_soft_update_factor = target_network_soft_update_factor
     self.buffer = replay_buffer
+
     model_input_size = input_dims + num_goals
     self.q_net = DeepQNetwork(lr, num_actions, model_input_size, fc_layer_params)
     self.q_target_net = DeepQNetwork(lr, num_actions, model_input_size, fc_layer_params)
 
-    self.train_loss = tf.keras.metrics.Mean('train_loss', dtype=tf.float32)
+    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
 
-    self.name = "policy"
     self.checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.q_net)
     self.checkopint_manager = tf.train.CheckpointManager(
       checkpoint=self.checkpoint,
@@ -148,6 +149,6 @@ class Agent:
 
   def write_summaries(self, summary_writer, step):
     with summary_writer.as_default():
-      tf.summary.scalar('policy_train_loss', self.train_loss.result(), step=step)
+      tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
   
     self.train_loss.reset_states()

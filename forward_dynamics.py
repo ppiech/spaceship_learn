@@ -39,6 +39,7 @@ class ForwardDynamics:
                lr, 
                batch_size,
                fc_layer_params):
+    self.name = "forward_dynamics"
     self.lr = lr
     self.step_var = step_var
     self.batch_size = batch_size
@@ -48,7 +49,8 @@ class ForwardDynamics:
     model_input_size = input_dims + 1
     self.net = ForwardDynamicsNetwork(lr, model_input_size, num_goals, fc_layer_params)
 
-    self.name = "forward_dynamics"
+    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+
     self.checkpoint = tf.train.Checkpoint(model=self.net)
     self.checkopint_manager = tf.train.CheckpointManager(
       checkpoint=self.checkpoint,
@@ -79,14 +81,14 @@ class ForwardDynamics:
       (state_batch, np.reshape(action_batch, (-1, 1))), axis=-1)
 
     # Train on batch
-    self.net.train_on_batch(state_and_action_batch, goals_batch)
+    loss = self.net.train_on_batch(state_and_action_batch, goals_batch)
+    self.train_loss(loss)
   
   def restore(self, load_from_dir):
     if load_from_dir:
       self.load(load_from_dir)
     elif self.checkopint_manager.latest_checkpoint:
       self.restore_from_checkpoint(self.checkopint_manager.latest_checkpoint)
-
 
   def restore_from_checkpoint(self, ckpt):
     self.checkpoint.restore(ckpt).expect_partial()
@@ -99,3 +101,7 @@ class ForwardDynamics:
 
   def load(self, save_dir):
     self.net = tf.keras.models.load_model(self.save_filename(save_dir))
+
+  def write_summaries(self, summary_writer, step):
+    with summary_writer.as_default():
+      tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)

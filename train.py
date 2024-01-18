@@ -142,6 +142,8 @@ def train(
 
     if step % summary_interval == 0:
       agent.write_summaries(summary_writer, step)
+      forward_dynamics.write_summaries(summary_writer, step)
+      inverse_dynamics.write_summaries(summary_writer, step)
 
 if __name__ == "__main__":
 

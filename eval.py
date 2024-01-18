@@ -88,18 +88,22 @@ def eval(
   episode_start_step = step
   score = 0.0
   score_ave = tf.keras.metrics.Mean('score', dtype=tf.float32)
+  metrics = []
   action_guess_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
       name='action_guess_accuracy', dtype=None
     )
+  metrics.append(action_guess_accuracy)
 
   goal_guess_overall_accuracies = tf.keras.metrics.BinaryAccuracy(
         'goals_overall_accuracy', threshold=0.5, dtype=None)
+  metrics.append(goal_guess_overall_accuracies)
 
   goal_guess_accuracies = list(map(
       lambda n: tf.keras.metrics.Mean(
-        'goal_%d_guess_accuracy'.format(n), dtype=tf.float32), 
+        'goal_{}_guess_accuracy'.format(n), dtype=tf.float32), 
       range(num_goals)
     ))
+  metrics.extend(goal_guess_accuracies)
 
   state, _ = env.reset()
 
@@ -155,10 +159,12 @@ def eval(
   print("Goals Overall Accuracy: {:0.2f}".format(goal_guess_overall_accuracies.result()))
   for i in range(num_goals):
     print("Goal {} Accuracy: {:0.2f}".format(i, goal_guess_accuracies[i].result()))
+  print("")
 
   summary_writer = tf.summary.create_file_writer(tensorboard_dir)
   with summary_writer.as_default():
-    tf.summary.scalar('episode_ave_score', score_ave.result(), step=step)
+    for metric in metrics:
+      tf.summary.scalar(metric.name, metric.result(), step=step)
 
 if __name__ == "__main__":
 

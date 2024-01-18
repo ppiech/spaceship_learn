@@ -35,15 +35,17 @@ class InverseDynamics:
                lr, 
                batch_size,
                fc_layer_params):
+    self.name = "inverse_dynamics"
     self.lr = lr
     self.num_action = num_actions
     self.step_var = step_var
     self.batch_size = batch_size
     self.buffer = replay_buffer
     self.train_interval = train_interval
-    self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
 
-    self.name = "inverse_dynamics"
+    self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
+    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+
     self.checkpoint = tf.train.Checkpoint(model=self.net)
     self.checkopint_manager = tf.train.CheckpointManager(
       checkpoint=self.checkpoint,
@@ -81,7 +83,8 @@ class InverseDynamics:
     a_target = to_categorical(action_batch, num_classes=3)
 
     # Train on batch
-    self.net.train_on_batch(state_and_next_state_batch, a_target)
+    loss = self.net.train_on_batch(state_and_next_state_batch, a_target)
+    self.train_loss(loss)
   
   def restore(self, load_from_dir):
     if load_from_dir:
@@ -100,3 +103,7 @@ class InverseDynamics:
 
   def load(self, save_dir):
     self.net = tf.keras.models.load_model(self.save_filename(save_dir))
+
+  def write_summaries(self, summary_writer, step):
+    with summary_writer.as_default():
+      tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
