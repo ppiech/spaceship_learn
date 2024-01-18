@@ -45,11 +45,19 @@ class ForwardDynamics:
     self.batch_size = batch_size
     self.buffer = replay_buffer
     self.train_interval = train_interval
+    self.num_goals = num_goals
 
     model_input_size = input_dims + 1
     self.net = ForwardDynamicsNetwork(lr, model_input_size, num_goals, fc_layer_params)
 
     self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+    self.goal_guess_error = tf.keras.metrics.Mean(name='goal_guess_error', dtype=None)
+
+    self.goal_guess_errors = list(map(
+        lambda n: tf.keras.metrics.Mean(
+          'goal_{}_guess_error'.format(n), dtype=tf.float32), 
+        range(num_goals)
+      ))
 
     self.checkpoint = tf.train.Checkpoint(model=self.net)
     self.checkopint_manager = tf.train.CheckpointManager(
@@ -65,6 +73,13 @@ class ForwardDynamics:
     goals = self.net(state_and_action)
     return goals[0]
   
+  def predicted_goals_error(self, state, action, goals):
+    goal_probabilities = self.infer_goals(state, action)
+
+    errors = goals - goal_probabilities
+    for i in range(self.num_goals):
+      self.goal_guess_errors[i].update_state(errors[i])
+
   def train(self):
     step_counter = self.step_var.numpy()
 
@@ -102,6 +117,9 @@ class ForwardDynamics:
   def load(self, save_dir):
     self.net = tf.keras.models.load_model(self.save_filename(save_dir))
 
-  def write_summaries(self, summary_writer, step):
-    with summary_writer.as_default():
-      tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
+  def write_summaries(self, step):
+    tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
+    tf.summary.scalar(self.goal_guess_error.name, self.goal_guess_error.result(), step=step)
+    
+    self.train_loss.reset_states()
+    self.goal_guess_error.reset_states()

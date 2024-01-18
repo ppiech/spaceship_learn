@@ -38,7 +38,7 @@ def eval(
     num_steps,
     max_steps_per_episode):
 
-  _, train_dir, eval_dir, _, tensorboard_dir, videos_dir = spaceship_util.get_dirs()
+  _, train_dir, eval_dir, _, videos_dir = spaceship_util.get_dirs()
 
   env = SpaceshipEnv()
   
@@ -161,10 +161,15 @@ def eval(
     print("Goal {} Accuracy: {:0.2f}".format(i, goal_guess_accuracies[i].result()))
   print("")
 
-  summary_writer = tf.summary.create_file_writer(tensorboard_dir)
+  summary_writer = tf.summary.create_file_writer(eval_dir)
   with summary_writer.as_default():
+    agent.write_summaries(step)
+    forward_dynamics.write_summaries(step)
+    inverse_dynamics.write_summaries(step)
+
     for metric in metrics:
       tf.summary.scalar(metric.name, metric.result(), step=step)
+
 
 if __name__ == "__main__":
 

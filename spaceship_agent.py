@@ -147,8 +147,6 @@ class Agent:
     self.q_net = tf.keras.models.load_model(self.save_filename(save_dir))
     self.q_target_net.set_weights(self.q_net.get_weights())
 
-  def write_summaries(self, summary_writer, step):
-    with summary_writer.as_default():
-      tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
-  
+  def write_summaries(self, step):
+    tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
     self.train_loss.reset_states()

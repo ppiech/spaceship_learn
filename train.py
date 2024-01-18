@@ -36,8 +36,7 @@ def train(
     save_interval,
     summary_interval,
 ):
-
-  _, train_dir, _, saved_model_dir, tensorboard_dir, _ = spaceship_util.get_dirs()
+  _, train_dir, _, saved_model_dir, _ = spaceship_util.get_dirs()
 
   env = SpaceshipEnv()
 
@@ -81,7 +80,7 @@ def train(
     num_goals=num_goals)
   agent.restore(load_dir)
 
-  summary_writer = tf.summary.create_file_writer(tensorboard_dir)
+  summary_writer = tf.summary.create_file_writer(train_dir)
 
   step = step_var.numpy()
 
@@ -100,9 +99,9 @@ def train(
     new_state, reward, terminated, truncated, _ = env.step(action)
     
     done = terminated
+    predicted_action_error = inverse_dynamics.predicted_action_error(state, new_state, action)
+    predicted_goal_error = forward_dynamics.predicted_goals_error(state, action, goals)
     replay_buffer.store_tuples(state, goals, action, reward, new_state, done)
-    predicted_actions = inverse_dynamics.infer_action(state, new_state)
-    predicted_goal = forward_dynamics.infer_goals(state, action)
     state = new_state
 
     if step > (initial_collect_steps + start_step):
@@ -141,9 +140,10 @@ def train(
       eval(load_dir=None) 
 
     if step % summary_interval == 0:
-      agent.write_summaries(summary_writer, step)
-      forward_dynamics.write_summaries(summary_writer, step)
-      inverse_dynamics.write_summaries(summary_writer, step)
+      agent.write_summaries(step)
+      forward_dynamics.write_summaries(step)
+      inverse_dynamics.write_summaries(step)
+
 
 if __name__ == "__main__":
 

@@ -45,12 +45,14 @@ class InverseDynamics:
 
     self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
     self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+    self.action_guess_error = tf.keras.metrics.Mean(name='action_guess_error', dtype=None)
 
     self.checkpoint = tf.train.Checkpoint(model=self.net)
     self.checkopint_manager = tf.train.CheckpointManager(
       checkpoint=self.checkpoint,
       directory=os.path.join(checkpoints_dir, self.name),
       max_to_keep=max_checkpoints_to_keep)
+
 
   def infer_action(self, state, next_state):
     state_and_next_state = np.concatenate((
@@ -61,6 +63,12 @@ class InverseDynamics:
 
     return action_probabilities[0]
   
+  def predicted_action_error(self, state, next_state, action):
+    action_probabilities = self.infer_action(state, next_state)
+    error = 1 - action_probabilities[action]
+    self.action_guess_error.update_state(error)
+    return error
+
   def action_from_probabilities(self, action_probabilities):
     return tf.math.argmax(action_probabilities).numpy()
   
@@ -104,6 +112,9 @@ class InverseDynamics:
   def load(self, save_dir):
     self.net = tf.keras.models.load_model(self.save_filename(save_dir))
 
-  def write_summaries(self, summary_writer, step):
-    with summary_writer.as_default():
-      tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
+  def write_summaries(self, step):
+    tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
+    tf.summary.scalar(self.action_guess_error.name, self.action_guess_error.result(), step=step)
+
+    self.train_loss.reset_states()
+    self.action_guess_error.reset_states()
