@@ -140,9 +140,14 @@ def train(
       eval(load_dir=None) 
 
     if step % summary_interval == 0:
-      agent.write_summaries(step)
-      forward_dynamics.write_summaries(step)
-      inverse_dynamics.write_summaries(step)
+      with summary_writer.as_default():
+        summaries = {}
+        summaries.update(agent.summaries())
+        summaries.update(forward_dynamics.summaries())
+        summaries.update(inverse_dynamics.summaries())
+        for key in summaries: 
+          tf.summary.scalar(key, summaries[key], step=step)
+
 
 
 if __name__ == "__main__":

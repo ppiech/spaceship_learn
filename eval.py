@@ -85,31 +85,16 @@ def eval(
 
   # Summary data
   episode = 1
-  episode_start_step = step
+  start_step = episode_start_step = step
   score = 0.0
   score_ave = tf.keras.metrics.Mean('score', dtype=tf.float32)
-  metrics = []
-  action_guess_accuracy = tf.keras.metrics.SparseCategoricalAccuracy(
-      name='action_guess_accuracy', dtype=None
-    )
-  metrics.append(action_guess_accuracy)
-
-  goal_guess_overall_accuracies = tf.keras.metrics.BinaryAccuracy(
-        'goals_overall_accuracy', threshold=0.5, dtype=None)
-  metrics.append(goal_guess_overall_accuracies)
-
-  goal_guess_accuracies = list(map(
-      lambda n: tf.keras.metrics.Mean(
-        'goal_{}_guess_accuracy'.format(n), dtype=tf.float32), 
-      range(num_goals)
-    ))
-  metrics.extend(goal_guess_accuracies)
 
   state, _ = env.reset()
 
   video_filename = os.path.join(videos_dir, "eval-{}.gif".format(step))
   video_recorder = VideoRecorder(env, video_filename)
   video_recorder.capture_frame()
+
 
   for _ in range(num_steps):
     logging.set_verbosity(logging.INFO)
@@ -122,19 +107,9 @@ def eval(
     video_recorder.capture_frame()
 
     done = terminated
-    score += reward
-    
-    predicted_actions_probabilibies = inverse_dynamics.infer_action(state, new_state) 
-    predicted_action = inverse_dynamics.action_from_probabilities(predicted_actions_probabilibies)
-    action_guess_accuracy.update_state(action, predicted_actions_probabilibies)
-
-    predicted_goal_probabilities = forward_dynamics.infer_goals(state, action)
-
-    # print(predicted_goal_probabilities)
-    goal_guess_overall_accuracies.update_state(goals, predicted_goal_probabilities)
-    for i in range(num_goals):
-      goal_guess_accuracies[i](goals[i] == (predicted_goal_probabilities[i] > 0.5))
-
+    score += reward    
+    predicted_action_error = inverse_dynamics.predicted_action_error(state, new_state, action)
+    predicted_goal_error = forward_dynamics.predicted_goals_error(state, action, goals)
     state = new_state
 
     step_var.assign_add(1)
@@ -151,26 +126,21 @@ def eval(
       video_recorder.capture_frame()
 
   # Print summary
-  score_ave.result()
+  summaries = {}
+  summaries.update(forward_dynamics.summaries())
+  summaries.update(inverse_dynamics.summaries())
+  summaries[score_ave.name] = score_ave.result()
+
   print("")
-  print("Episodes {}, Step: {}".format(episode, step))
-  print("AVG Score: {:2.2f}".format(score_ave.result()))
-  print("Inverse Accuracy: {:0.2f}".format(action_guess_accuracy.result()))
-  print("Goals Overall Accuracy: {:0.2f}".format(goal_guess_overall_accuracies.result()))
-  for i in range(num_goals):
-    print("Goal {} Accuracy: {:0.2f}".format(i, goal_guess_accuracies[i].result()))
+  for key in summaries: 
+    print("{} = {:0.2f}".format(key, summaries[key]))
   print("")
 
   summary_writer = tf.summary.create_file_writer(eval_dir)
   with summary_writer.as_default():
-    agent.write_summaries(step)
-    forward_dynamics.write_summaries(step)
-    inverse_dynamics.write_summaries(step)
-
-    for metric in metrics:
-      tf.summary.scalar(metric.name, metric.result(), step=step)
-
-
+    for key in summaries: 
+      tf.summary.scalar(key, summaries[key], step=start_step)
+    
 if __name__ == "__main__":
 
   def main(argv):

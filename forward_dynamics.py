@@ -11,6 +11,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
 from replay_buffer import ReplayBuffer
+from spaceship_agent import Model
 
 def ForwardDynamicsNetwork(lr, input_dims, num_goals, fc_layer_params):
 
@@ -26,7 +27,7 @@ def ForwardDynamicsNetwork(lr, input_dims, num_goals, fc_layer_params):
   return q_net
 
 @gin.configurable
-class ForwardDynamics:
+class ForwardDynamics(Model):
   def __init__(self, 
                step_var, 
                replay_buffer,
@@ -39,7 +40,8 @@ class ForwardDynamics:
                lr, 
                batch_size,
                fc_layer_params):
-    self.name = "forward_dynamics"
+    name = "forward_dynamics"
+
     self.lr = lr
     self.step_var = step_var
     self.batch_size = batch_size
@@ -48,29 +50,31 @@ class ForwardDynamics:
     self.num_goals = num_goals
 
     model_input_size = input_dims + 1
-    self.net = ForwardDynamicsNetwork(lr, model_input_size, num_goals, fc_layer_params)
+    network = ForwardDynamicsNetwork(lr, model_input_size, num_goals, fc_layer_params)
 
-    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+    metrics = []
+
+    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(name), dtype=tf.float32)
+    metrics.append(self.train_loss)
+
     self.goal_guess_error = tf.keras.metrics.Mean(name='goal_guess_error', dtype=None)
+    metrics.append(self.goal_guess_error)
 
     self.goal_guess_errors = list(map(
         lambda n: tf.keras.metrics.Mean(
           'goal_{}_guess_error'.format(n), dtype=tf.float32), 
         range(num_goals)
       ))
+    metrics.extend(self.goal_guess_errors)
 
-    self.checkpoint = tf.train.Checkpoint(model=self.net)
-    self.checkopint_manager = tf.train.CheckpointManager(
-      checkpoint=self.checkpoint,
-      directory=os.path.join(checkpoints_dir, self.name),
-      max_to_keep=max_checkpoints_to_keep)
+    super().__init__(name, network, step_var, checkpoints_dir, max_checkpoints_to_keep, metrics)
 
   def infer_goals(self, state, action):
     state_and_action = np.concatenate((
       np.array([state]), 
       np.array([[action]])), 
       axis=-1)
-    goals = self.net(state_and_action)
+    goals = self.network(state_and_action)
     return goals[0]
   
   def predicted_goals_error(self, state, action, goals):
@@ -79,6 +83,8 @@ class ForwardDynamics:
     errors = goals - goal_probabilities
     for i in range(self.num_goals):
       self.goal_guess_errors[i].update_state(errors[i])
+
+    return errors
 
   def train(self):
     step_counter = self.step_var.numpy()
@@ -96,30 +102,6 @@ class ForwardDynamics:
       (state_batch, np.reshape(action_batch, (-1, 1))), axis=-1)
 
     # Train on batch
-    loss = self.net.train_on_batch(state_and_action_batch, goals_batch)
+    loss = self.network.train_on_batch(state_and_action_batch, goals_batch)
     self.train_loss(loss)
   
-  def restore(self, load_from_dir):
-    if load_from_dir:
-      self.load(load_from_dir)
-    elif self.checkopint_manager.latest_checkpoint:
-      self.restore_from_checkpoint(self.checkopint_manager.latest_checkpoint)
-
-  def restore_from_checkpoint(self, ckpt):
-    self.checkpoint.restore(ckpt).expect_partial()
-
-  def save_filename(self, save_dir):
-    return os.path.join(save_dir, "%s.keras".format(self.name))
-
-  def save(self, save_dir):
-    self.net.save(self.save_filename(save_dir))
-
-  def load(self, save_dir):
-    self.net = tf.keras.models.load_model(self.save_filename(save_dir))
-
-  def write_summaries(self, step):
-    tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
-    tf.summary.scalar(self.goal_guess_error.name, self.goal_guess_error.result(), step=step)
-    
-    self.train_loss.reset_states()
-    self.goal_guess_error.reset_states()

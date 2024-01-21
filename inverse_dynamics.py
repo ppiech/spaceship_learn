@@ -11,6 +11,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.utils import to_categorical
 
 from replay_buffer import ReplayBuffer
+from spaceship_agent import Model
 
 def InverseDynamicsNetwork(lr, num_actions, input_dims, fc_layer_params):
   q_net = Sequential()
@@ -23,7 +24,7 @@ def InverseDynamicsNetwork(lr, num_actions, input_dims, fc_layer_params):
   return q_net
 
 @gin.configurable
-class InverseDynamics:
+class InverseDynamics(Model):
   def __init__(self, 
                step_var, 
                replay_buffer,
@@ -35,7 +36,7 @@ class InverseDynamics:
                lr, 
                batch_size,
                fc_layer_params):
-    self.name = "inverse_dynamics"
+    name = "inverse_dynamics"
     self.lr = lr
     self.num_action = num_actions
     self.step_var = step_var
@@ -43,23 +44,20 @@ class InverseDynamics:
     self.buffer = replay_buffer
     self.train_interval = train_interval
 
-    self.net = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
-    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+    network = InverseDynamicsNetwork(lr, num_actions, input_dims * 2, fc_layer_params)
+
+    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(name), dtype=tf.float32)
     self.action_guess_error = tf.keras.metrics.Mean(name='action_guess_error', dtype=None)
+    metrics = [self.train_loss, self.action_guess_error]
 
-    self.checkpoint = tf.train.Checkpoint(model=self.net)
-    self.checkopint_manager = tf.train.CheckpointManager(
-      checkpoint=self.checkpoint,
-      directory=os.path.join(checkpoints_dir, self.name),
-      max_to_keep=max_checkpoints_to_keep)
-
+    super().__init__(name, network, step_var, checkpoints_dir, max_checkpoints_to_keep, metrics)
 
   def infer_action(self, state, next_state):
     state_and_next_state = np.concatenate((
       np.array([state]), 
       np.array([next_state])), 
       axis=-1)
-    action_probabilities = self.net(state_and_next_state)
+    action_probabilities = self.network(state_and_next_state)
 
     return action_probabilities[0]
   
@@ -91,30 +89,5 @@ class InverseDynamics:
     a_target = to_categorical(action_batch, num_classes=3)
 
     # Train on batch
-    loss = self.net.train_on_batch(state_and_next_state_batch, a_target)
+    loss = self.network.train_on_batch(state_and_next_state_batch, a_target)
     self.train_loss(loss)
-  
-  def restore(self, load_from_dir):
-    if load_from_dir:
-      self.load(load_from_dir)
-    elif self.checkopint_manager.latest_checkpoint:
-      self.restore_from_checkpoint(self.checkopint_manager.latest_checkpoint)
-
-  def restore_from_checkpoint(self, ckpt):
-    self.checkpoint.restore(ckpt).expect_partial()
-
-  def save_filename(self, save_dir):
-    return os.path.join(save_dir, "%s.keras".format(self.name))
-
-  def save(self, save_dir):
-    self.net.save(self.save_filename(save_dir))
-
-  def load(self, save_dir):
-    self.net = tf.keras.models.load_model(self.save_filename(save_dir))
-
-  def write_summaries(self, step):
-    tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
-    tf.summary.scalar(self.action_guess_error.name, self.action_guess_error.result(), step=step)
-
-    self.train_loss.reset_states()
-    self.action_guess_error.reset_states()

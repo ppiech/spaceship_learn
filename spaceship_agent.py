@@ -30,12 +30,12 @@ class Model:
                network,
                step_var, 
                checkpoints_dir,
-               max_checkpoints_to_keep):
+               max_checkpoints_to_keep, 
+               metrics):
     self.name = name
     self.network = network
     self.step_var = step_var
-
-    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(self.name), dtype=tf.float32)
+    self.metrics = metrics
 
     self.checkpoint = tf.train.Checkpoint(global_step=self.step_var, model=self.network)
     self.checkopint_manager = tf.train.CheckpointManager(
@@ -61,10 +61,12 @@ class Model:
   def load(self, save_dir):
     self.network = tf.keras.models.load_model(self.save_filename(save_dir))
 
-  def write_summaries(self, step):
-    tf.summary.scalar(self.train_loss.name, self.train_loss.result(), step=step)
-    self.train_loss.reset_states()
-
+  def summaries(self):
+    sumarries = {}
+    for metric in self.metrics:
+      sumarries[metric.name] = metric.result()
+      metric.reset_states()
+    return sumarries
 
 @gin.configurable
 class Agent(Model):
@@ -102,8 +104,11 @@ class Agent(Model):
     model_input_size = input_dims + num_goals
     q_net = DeepQNetwork(lr, num_actions, model_input_size, fc_layer_params)
     self.q_target_net = DeepQNetwork(lr, num_actions, model_input_size, fc_layer_params)
-    
-    super().__init__(name, q_net, step_var, checkpoints_dir, max_checkpoints_to_keep)
+
+    self.train_loss = tf.keras.metrics.Mean('{}_train_loss'.format(name), dtype=tf.float32)
+    metrics = [ self.train_loss ]
+
+    super().__init__(name, q_net, step_var, checkpoints_dir, max_checkpoints_to_keep, metrics)
 
   def policy(self, goals, observation):
     if np.random.random() < self.epsilon:
@@ -171,3 +176,4 @@ class Agent(Model):
   def load(self, save_dir):
     Model.load(self, save_dir)
     self.q_target_net.set_weights(self.network.get_weights())
+
