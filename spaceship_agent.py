@@ -137,7 +137,7 @@ class Agent(Model):
     self.soft_update(self.network, self.q_target_net)
 
     # Random select an experience sample
-    state_batch, goal_batch, action_batch, reward_batch, new_state_batch, done_batch = \
+    state_batch, new_state_batch, goal_batch, action_batch, reward_batch, bonus_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
 
     input_batch = np.concatenate((goal_batch, state_batch), axis=-1)

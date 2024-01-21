@@ -95,7 +95,7 @@ class ForwardDynamics(Model):
       return
 
     # Random select an experience sample
-    state_batch, goals_batch, action_batch, reward_batch, new_state_batch, done_batch = \
+    state_batch, _, goals_batch, action_batch, _, _, _ = \
       self.buffer.sample_buffer(self.batch_size)
 
     state_and_action_batch = np.concatenate(

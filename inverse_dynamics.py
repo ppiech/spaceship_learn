@@ -79,7 +79,7 @@ class InverseDynamics(Model):
       return
 
     # Random select an experience sample
-    state_batch, goals_batch, action_batch, reward_batch, new_state_batch, done_batch = \
+    state_batch, new_state_batch, _, action_batch, _, _, _ = \
       self.buffer.sample_buffer(self.batch_size)
 
     state_and_next_state_batch = np.concatenate(

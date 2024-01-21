@@ -101,7 +101,8 @@ def train(
     done = terminated
     predicted_action_error = inverse_dynamics.predicted_action_error(state, new_state, action)
     predicted_goal_error = forward_dynamics.predicted_goals_error(state, action, goals)
-    replay_buffer.store_tuples(state, goals, action, reward, new_state, done)
+    bonus = 0.0
+    replay_buffer.store_tuples(state, new_state, goals, action, reward, bonus, done)
     state = new_state
 
     if step > (initial_collect_steps + start_step):
