@@ -80,7 +80,7 @@ class ForwardDynamics(Model):
   def predicted_goals_error(self, state, action, goals):
     goal_probabilities = self.infer_goals(state, action)
 
-    errors = goals - goal_probabilities
+    errors = tf.math.abs(goals - goal_probabilities)
     for i in range(self.num_goals):
       self.goal_guess_errors[i].update_state(errors[i])
 
