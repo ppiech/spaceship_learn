@@ -69,22 +69,22 @@ class ForwardDynamics(Model):
 
     super().__init__(name, network, step_var, checkpoints_dir, max_checkpoints_to_keep, metrics)
 
-  def infer_goals(self, state, action):
+  def infer_goal(self, state, action):
     state_and_action = np.concatenate((
       np.array([state]), 
       np.array([[action]])), 
       axis=-1)
-    goals = self.network(state_and_action)
-    return goals[0]
+    goal = self.network(state_and_action)
+    return goal[0]
   
-  def predicted_goals_error(self, state, action, goals):
-    goal_probabilities = self.infer_goals(state, action)
+  def predicted_goal_error(self, state, action, goal):
+    goal_probabilities = self.infer_goal(state, action)
 
-    errors = tf.math.abs(goals - goal_probabilities)
+    errors = tf.math.abs(goal - goal_probabilities)
     for i in range(self.num_goals):
       self.goal_guess_errors[i].update_state(errors[i])
 
-    return errors
+    return tf.math.reduce_mean(errors).numpy()
 
   def train(self):
     step_counter = self.step_var.numpy()

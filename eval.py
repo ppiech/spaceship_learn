@@ -23,15 +23,6 @@ from forward_dynamics import ForwardDynamics
 from spaceship_util import VideoRecorder
 from goaly import Goaly
 
-
-
-# flags.DEFINE_multi_string('gin_param', None, 'Gin parameter bindings.')
-# FLAGS = flags.FLAGS
-
-# gin.parse_config_files_and_bindings('config/base.gin', FLAGS.gin_param)
-
-
-
 @gin.configurable
 def eval(
     load_dir,
@@ -99,9 +90,9 @@ def eval(
   for _ in range(num_steps):
     logging.set_verbosity(logging.INFO)
 
-    goals = goaly.goal(state)
+    goal = goaly.goal(state)
 
-    action = agent.policy(goals, state)
+    action = agent.policy(goal, state)
     new_state, reward, terminated, truncated, _ = env.step(action)
 
     video_recorder.capture_frame()
@@ -109,7 +100,7 @@ def eval(
     done = terminated
     score += reward    
     predicted_action_error = inverse_dynamics.predicted_action_error(state, new_state, action)
-    predicted_goal_error = forward_dynamics.predicted_goals_error(state, action, goals)
+    predicted_goal_error = forward_dynamics.predicted_goal_error(state, action, goal)
     state = new_state
 
     step_var.assign_add(1)
@@ -129,6 +120,7 @@ def eval(
   summaries = {}
   summaries.update(forward_dynamics.summaries())
   summaries.update(inverse_dynamics.summaries())
+  summaries.update(goaly.summaries())
   summaries[score_ave.name] = score_ave.result()
 
   print("")

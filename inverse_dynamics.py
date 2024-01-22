@@ -65,7 +65,7 @@ class InverseDynamics(Model):
     action_probabilities = self.infer_action(state, next_state)
     error = 1 - action_probabilities[action]
     self.action_guess_error.update_state(error)
-    return error
+    return error.numpy()
 
   def action_from_probabilities(self, action_probabilities):
     return tf.math.argmax(action_probabilities).numpy()

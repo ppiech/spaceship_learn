@@ -93,16 +93,17 @@ def train(
     logging.set_verbosity(logging.INFO)
     start_time = time.time()
 
-    goals = goaly.goal(state)
+    goal = goaly.goal(state)
 
-    action = agent.policy(goals, state)
+    action = agent.policy(goal, state)
     new_state, reward, terminated, truncated, _ = env.step(action)
     
     done = terminated
     predicted_action_error = inverse_dynamics.predicted_action_error(state, new_state, action)
-    predicted_goal_error = forward_dynamics.predicted_goals_error(state, action, goals)
-    bonus = 0.0
-    replay_buffer.store_tuples(state, new_state, goals, action, reward, bonus, done)
+    predicted_goal_error = forward_dynamics.predicted_goal_error(state, action, goal)
+    bonus = goaly.bonus(predicted_action_error, predicted_goal_error)
+
+    replay_buffer.store_tuples(state, new_state, goal, action, reward, bonus, done)
     state = new_state
 
     if step > (initial_collect_steps + start_step):
@@ -146,10 +147,9 @@ def train(
         summaries.update(agent.summaries())
         summaries.update(forward_dynamics.summaries())
         summaries.update(inverse_dynamics.summaries())
+        summaries.update(goaly.summaries())
         for key in summaries: 
           tf.summary.scalar(key, summaries[key], step=step)
-
-
 
 if __name__ == "__main__":
 

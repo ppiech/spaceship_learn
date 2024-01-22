@@ -62,11 +62,11 @@ class Model:
     self.network = tf.keras.models.load_model(self.save_filename(save_dir))
 
   def summaries(self):
-    sumarries = {}
+    summarries = {}
     for metric in self.metrics:
-      sumarries[metric.name] = metric.result()
+      summarries[metric.name] = metric.result()
       metric.reset_states()
-    return sumarries
+    return summarries
 
 @gin.configurable
 class Agent(Model):
@@ -110,11 +110,11 @@ class Agent(Model):
 
     super().__init__(name, q_net, step_var, checkpoints_dir, max_checkpoints_to_keep, metrics)
 
-  def policy(self, goals, observation):
+  def policy(self, goal, observation):
     if np.random.random() < self.epsilon:
       action = np.random.choice(self.action_space)
     else:
-      input = np.reshape(np.concatenate((goals, observation)), (1, -1))
+      input = np.reshape(np.concatenate((goal, observation)), (1, -1))
       actions = self.network(input)
       action = tf.math.argmax(actions, axis=1).numpy()[0]
 
@@ -154,6 +154,7 @@ class Agent(Model):
       target_q_val = reward_batch[idx]
       if not done_batch[idx]:
         target_q_val += self.discount_factor*q_max_next[idx]
+      target_q_val += bonus_batch[idx]
       q_target[idx, action_batch[idx]] = target_q_val
       
     # Performd gradient descent and parameter update on the q_net
