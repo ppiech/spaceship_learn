@@ -82,10 +82,9 @@ def eval(
 
   state, _ = env.reset()
 
-  video_filename = os.path.join(videos_dir, "eval-{}.gif".format(step))
+  video_filename = os.path.join(videos_dir, "eval-{}.mp4".format(step))
   video_recorder = VideoRecorder(env, video_filename)
   video_recorder.capture_frame()
-
 
   for _ in range(num_steps):
     logging.set_verbosity(logging.INFO)
@@ -101,8 +100,9 @@ def eval(
     score += reward    
     predicted_action_error = inverse_dynamics.predicted_action_error(state, new_state, action)
     predicted_goal_error = forward_dynamics.predicted_goal_error(state, action, goal)
-    state = new_state
+    bonus = goaly.bonus(predicted_action_error, predicted_goal_error)
 
+    state = new_state
     step_var.assign_add(1)
     step = step_var.numpy()
 

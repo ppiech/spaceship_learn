@@ -5,6 +5,7 @@ import imageio
 import PIL
 import gin
 import datetime
+import numpy as np
 
 def ensure_dir(dir):
   if not tf.io.gfile.exists(dir):
@@ -44,7 +45,7 @@ class VideoRecorder:
           width = int(im.size[0] * self.scale)
           height = int(im.size[1] * self.scale)
           im = im.resize((width, height), PIL.Image.NEAREST)
-          image_array = im
+          image_array = np.array(im)
 
         self.video.append_data(image_array)
 

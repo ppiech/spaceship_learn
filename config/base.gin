@@ -15,6 +15,7 @@ Agent.epsilon_final=0.01
 Agent.batch_size=64
 Agent.fc_layer_params=(256, 256)
 Agent.max_checkpoints_to_keep=2
+Agent.use_extrinsic_rewards=False
 
 InverseDynamics.lr=0.00075
 InverseDynamics.batch_size=64
@@ -31,7 +32,7 @@ ForwardDynamics.max_checkpoints_to_keep=2
 Goaly.num_goals=2
 
 VideoRecorder.num_steps_to_capture = 2000
-VideoRecorder.capture_ever_n_frames = 4
+VideoRecorder.capture_ever_n_frames = 1
 VideoRecorder.scale = 0.5
 
 SpaceshipEnv.screen_dimension = (800, 500)

@@ -78,6 +78,7 @@ class Agent(Model):
                train_interval,
                lr, 
                discount_factor,
+               use_extrinsic_rewards,
                target_network_soft_update_factor,
                num_actions, 
                epsilon,
@@ -95,6 +96,7 @@ class Agent(Model):
     self.train_interval = train_interval
     self.action_space = [i for i in range(num_actions)]
     self.discount_factor = discount_factor
+    self.use_extrinsic_rewards = use_extrinsic_rewards
     self.epsilon = epsilon
     self.batch_size = batch_size
     self.epsilon_decay = epsilon_decay
@@ -139,6 +141,9 @@ class Agent(Model):
     # Random select an experience sample
     state_batch, new_state_batch, goal_batch, action_batch, reward_batch, bonus_batch, done_batch = \
       self.buffer.sample_buffer(self.batch_size)
+
+    if not self.use_extrinsic_rewards:
+      reward_batch = np.zeros((self.batch_size,))
 
     input_batch = np.concatenate((goal_batch, state_batch), axis=-1)
     new_input_batch = np.concatenate((goal_batch, new_state_batch), axis=-1)
